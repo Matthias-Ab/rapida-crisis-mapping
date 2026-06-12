@@ -1,0 +1,48 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Report {
+  id                   String    @id @default(uuid()) @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  latitude             Float
+  longitude            Float
+  buildingId           String?   @map("building_id")
+  locationText         String?   @map("location_text")
+  what3words           String?
+  photoUrl             String    @map("photo_url")
+  photoKey             String    @map("photo_key")
+  thumbnailUrl         String?   @map("thumbnail_url")
+  damageLevel          String    @map("damage_level")
+  aiDamageLevel        String?   @map("ai_damage_level")
+  aiConfidence         Float?    @map("ai_confidence")
+  infraType            String    @map("infra_type")
+  infraName            String?   @map("infra_name")
+  crisisType           String    @map("crisis_type")
+  description          String?
+  debrisPresent        Boolean?  @map("debris_present")
+  electricityStatus    String?   @map("electricity_status")
+  healthServicesStatus String?   @map("health_services_status")
+  pressingNeeds        String[]  @map("pressing_needs")
+  sessionId            String    @map("session_id")
+  ipHash               String?   @map("ip_hash")
+  language             String    @default("en")
+  isFlagged            Boolean   @default(false) @map("is_flagged")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  duplicateOfId        String?   @map("duplicate_of") @db.Uuid
+  duplicateOf          Report?   @relation("Duplicates", fields: [duplicateOfId], references: [id])
+  duplicates           Report[]  @relation("Duplicates")
+
+  @@map("reports")
+  @@index([sessionId])
+  @@index([createdAt(sort: Desc)])
+  @@index([damageLevel])
+  @@index([buildingId])
+}

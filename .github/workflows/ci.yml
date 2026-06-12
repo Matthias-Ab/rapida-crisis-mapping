@@ -1,0 +1,251 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ----------------------------------------------------------
+  # Lint
+  # ----------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint --if-present
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint --if-present
+
+  # ----------------------------------------------------------
+  # Backend tests (Jest + real PostGIS container)
+  # ----------------------------------------------------------
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: crisis_user_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: crisis_mapper_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crisis_user_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://crisis_user_test:test_password@localhost:5432/crisis_mapper_test
+      NODE_ENV: test
+      PORT: 3001
+      DASHBOARD_API_KEY: test_key
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: crisis-reports-test
+      MINIO_USE_SSL: 'false'
+      CORS_ORIGINS: 'http://localhost:5173'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate --schema=prisma/schema.prisma 2>/dev/null || true
+
+      - name: Run database migrations / seed schema
+        working-directory: backend
+        run: |
+          # Apply init.sql directly for test speed
+          PGPASSWORD=test_password psql \
+            -h localhost -U crisis_user_test -d crisis_mapper_test \
+            -f ../db/init.sql
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: npm run test:coverage --if-present || npm test -- --coverage --forceExit
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          retention-days: 7
+
+  # ----------------------------------------------------------
+  # Frontend tests (Vitest)
+  # ----------------------------------------------------------
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage --if-present || npm run test -- --coverage --run
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
+  # ----------------------------------------------------------
+  # Docker image builds (validation only — no push on PRs)
+  # ----------------------------------------------------------
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [lint]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./docker/Dockerfile.backend
+          push: false
+          tags: crisis-mapping/backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./docker/Dockerfile.frontend
+          push: false
+          tags: crisis-mapping/frontend:ci
+          build-args: |
+            VITE_API_BASE_URL=/api/v1
+            VITE_ENABLE_AI=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----------------------------------------------------------
+  # Coverage summary comment on PRs
+  # ----------------------------------------------------------
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download backend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage/backend
+        continue-on-error: true
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/frontend
+        continue-on-error: true
+
+      - name: Post coverage summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const lines = [];
+
+            lines.push('## Test Coverage Report\n');
+
+            for (const pkg of ['backend', 'frontend']) {
+              const summaryPath = `coverage/${pkg}/coverage-summary.json`;
+              if (fs.existsSync(summaryPath)) {
+                const data = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+                const t = data.total;
+                lines.push(`### ${pkg.charAt(0).toUpperCase() + pkg.slice(1)}`);
+                lines.push('| Metric | % | Covered / Total |');
+                lines.push('|--------|---|-----------------|');
+                for (const [key, val] of Object.entries(t)) {
+                  lines.push(`| ${key} | ${val.pct}% | ${val.covered} / ${val.total} |`);
+                }
+                lines.push('');
+              } else {
+                lines.push(`### ${pkg.charAt(0).toUpperCase() + pkg.slice(1)}\n_Coverage data not available._\n`);
+              }
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: lines.join('\n')
+            });

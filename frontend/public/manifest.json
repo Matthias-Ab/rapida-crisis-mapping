@@ -1,0 +1,13 @@
+{
+  "name": "RAPIDA Crisis Mapping",
+  "short_name": "RAPIDA",
+  "description": "UNDP Community Crisis Damage Reporting Platform",
+  "theme_color": "#0468B1",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/submit",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
