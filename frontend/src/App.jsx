@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import MapPage from './pages/Map'
 import Privacy from './pages/Privacy'
 import ReportDetail from './pages/ReportDetail'
+import Reports from './pages/Reports'
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/map" element={<MapPage />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/reports" element={<Reports />} />
       <Route path="/reports/:id" element={<ReportDetail />} />
     </Routes>
   )

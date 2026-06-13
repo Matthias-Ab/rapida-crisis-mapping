@@ -29,6 +29,7 @@ export default function Submit() {
   const sessionId = useStore((s) => s.sessionId)
   const badges = useStore((s) => s.badges)
   const submissionCount = useStore((s) => s.submissionCount)
+  const submittedReportIds = useStore((s) => s.submittedReportIds)
   const { queueCount, isSyncing, sync } = useOfflineQueue()
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [analytics, setAnalytics] = useState(null)
@@ -201,6 +202,29 @@ export default function Submit() {
                 })}
               </div>
 
+              {/* My submitted reports list */}
+              {submittedReportIds.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">My Reports</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {[...submittedReportIds].reverse().map((id, i) => (
+                      <Link
+                        key={id}
+                        to={`/reports/${id}`}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 hover:bg-undp-blue/5 hover:text-undp-blue transition-colors group"
+                      >
+                        <span className="text-xs font-mono text-gray-500 group-hover:text-undp-blue truncate flex-1">
+                          #{submittedReportIds.length - i} · {id.slice(0, 8)}…
+                        </span>
+                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-undp-blue flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {nextBadge && (
                 <div className="bg-blue-50 rounded-xl p-3">
                   <p className="text-xs text-undp-blue font-semibold">
@@ -234,6 +258,8 @@ export default function Submit() {
         <p className="mb-1">{t('data_notice')}</p>
         <div className="flex items-center justify-center gap-3">
           <Link to="/privacy" className="text-undp-blue hover:underline">{t('privacy_policy')}</Link>
+          <span>·</span>
+          <Link to="/reports" className="text-undp-blue hover:underline">All Reports</Link>
           <span>·</span>
           <Link to="/dashboard" className="text-undp-blue hover:underline">{t('dashboard')}</Link>
           <span>·</span>
