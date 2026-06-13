@@ -11,7 +11,13 @@
     "migrate:deploy": "npx prisma migrate deploy",
     "generate": "npx prisma generate",
     "test": "jest --runInBand",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "seed": "node scripts/seed.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.test.js"],
+    "passWithNoTests": true
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",

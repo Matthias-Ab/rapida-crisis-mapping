@@ -1,8 +1,9 @@
 # RAPIDA — Community Crisis Reporting Platform
 
 [![UNDP / InnoCentive Challenge](https://img.shields.io/badge/UNDP%20InnoCentive-Crisis%20Mapping%20Challenge-009edb?style=flat-square)](https://innocentive.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/your-username/rapida-crisis-mapping/ci.yml?style=flat-square&label=CI)](https://github.com/your-username/rapida-crisis-mapping/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/Matthias-Ab/rapida-crisis-mapping/ci.yml?style=flat-square&label=CI)](https://github.com/Matthias-Ab/rapida-crisis-mapping/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/Matthias-Ab/rapida-crisis-mapping/pulls)
 
 ---
 
@@ -74,12 +75,31 @@ The platform is designed around three core principles: **anonymity** (no persona
 
 ---
 
+## Screenshots
+
+| Submission Form (mobile) | Analyst Dashboard |
+|:---:|:---:|
+| ![Submit form](screenshots/submit-form.png) | ![Dashboard](screenshots/dashboard.png) |
+
+---
+
+## Live Demo
+
+> To deploy your own instance, see [DEPLOYMENT.md](DEPLOYMENT.md) or use one of the one-click options below.
+
+### One-click deploy options
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+[![Deploy to Fly.io](https://img.shields.io/badge/Deploy%20to-Fly.io-purple?style=for-the-badge&logo=fly.io)](https://fly.io)
+
+---
+
 ## Quick Start (Docker)
 
 > **Requirements:** Docker 24+ and Docker Compose v2 (`docker compose`), or Docker Compose v1 (`docker-compose`).
 
 ```bash
-git clone https://github.com/your-username/rapida-crisis-mapping
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
 cd rapida-crisis-mapping
 cp .env.example .env
 # Edit .env and set DASHBOARD_API_KEY to a strong random secret:
@@ -447,7 +467,7 @@ newgrp docker
 ### 2. Clone the Repository and Configure Environment
 
 ```bash
-git clone https://github.com/your-username/rapida-crisis-mapping
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
 cd rapida-crisis-mapping
 cp .env.example .env
 ```

@@ -1,0 +1,31 @@
+# Fly.io app configuration for RAPIDA backend
+app = "rapida-crisis-mapping"
+primary_region = "ams"
+
+[build]
+  dockerfile = "docker/Dockerfile.backend"
+  dockerfile_path = "docker/Dockerfile.backend"
+
+[env]
+  PORT = "3001"
+  NODE_ENV = "production"
+  MINIO_USE_SSL = "false"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/v1/health"
+    timeout = "10s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

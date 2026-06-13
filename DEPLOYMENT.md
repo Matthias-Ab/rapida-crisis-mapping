@@ -72,7 +72,7 @@ The development stack (`docker-compose.yml`) is suitable for local testing, demo
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rapida-crisis-mapping
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
 cd rapida-crisis-mapping
 
 # Create the environment file
@@ -836,4 +836,4 @@ docker-compose -f docker-compose.prod.yml up -d backend
 
 ---
 
-*For questions or issues, open a GitHub issue at https://github.com/your-username/rapida-crisis-mapping.*
+*For questions or issues, open a GitHub issue at https://github.com/Matthias-Ab/rapida-crisis-mapping.*
