@@ -98,6 +98,64 @@ function DamageBar({ none, partial, complete, total }) {
   )
 }
 
+function TimeseriesChart() {
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/v1/analytics/timeseries')
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="h-24 animate-pulse bg-gray-100 rounded-xl" />
+  if (!data.length) return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 text-center text-sm text-gray-400">
+      No reports in last 48 hours
+    </div>
+  )
+
+  const maxVal = Math.max(...data.map(d => d.total), 1)
+  const total = data.reduce((s, d) => s + d.total, 0)
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Report activity — last 48h</p>
+        <span className="text-xs text-gray-400">{total} total</span>
+      </div>
+      <div className="flex items-end gap-px h-20">
+        {data.map((d, i) => {
+          const h = Math.max(2, (d.total / maxVal) * 80)
+          const noneH  = (d.none    / maxVal) * 80
+          const partH  = (d.partial / maxVal) * 80
+          const compH  = (d.complete/ maxVal) * 80
+          return (
+            <div key={i} className="flex-1 flex flex-col justify-end group relative" style={{ height: 80 }}>
+              <div className="w-full flex flex-col transition-all duration-500" style={{ height: h }}>
+                <div className="bg-undp-red   w-full transition-all" style={{ height: compH }} />
+                <div className="bg-undp-amber w-full transition-all" style={{ height: partH }} />
+                <div className="bg-undp-green w-full transition-all" style={{ height: noneH }} />
+              </div>
+              {d.total > 0 && (
+                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 z-10 pointer-events-none">
+                  {d.total} reports
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[10px] text-gray-400">48h ago</span>
+        <span className="text-[10px] text-gray-400">24h ago</span>
+        <span className="text-[10px] text-gray-400">now</span>
+      </div>
+    </div>
+  )
+}
+
 export default function StatsBar() {
   const { t } = useTranslation()
   const [stats, setStats] = useState(null)
@@ -232,6 +290,9 @@ export default function StatsBar() {
           </div>
         </div>
       </div>
+
+      {/* Time-series chart */}
+      <TimeseriesChart />
     </div>
   )
 }

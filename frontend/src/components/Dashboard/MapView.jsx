@@ -197,8 +197,150 @@ function LiveBadge({ lastRefresh, refreshing }) {
   )
 }
 
+// ── Analyst actions (verify + notes) ─────────────────────────────────────────
+function AnalystActions({ reportId, isVerified, analystNotes, apiKey }) {
+  const [verified, setVerified] = useState(isVerified)
+  const [notes, setNotes] = useState(analystNotes || '')
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function toggleVerify() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/v1/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({ is_verified: !verified })
+      })
+      if (res.ok) setVerified(v => !v)
+    } finally { setSaving(false) }
+  }
+
+  async function saveNotes() {
+    setSaving(true)
+    try {
+      await fetch(`/api/v1/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({ analyst_notes: notes })
+      })
+      setEditing(false)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="border-t border-gray-100 pt-2 mt-2">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Analyst Actions</p>
+
+      {/* Verify toggle */}
+      <button
+        onClick={toggleVerify}
+        disabled={saving}
+        className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold mb-2 transition-colors ${
+          verified
+            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+            : 'bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-700'
+        }`}
+      >
+        {verified ? '✓ Verified' : '○ Mark as Verified'}
+      </button>
+
+      {/* Notes */}
+      {editing ? (
+        <div className="space-y-1">
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="Add analyst note…"
+            className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-undp-blue"
+          />
+          <div className="flex gap-1">
+            <button onClick={saveNotes} disabled={saving}
+              className="flex-1 py-1 bg-undp-blue text-white text-xs rounded-lg font-medium">
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={() => setEditing(false)}
+              className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setEditing(true)}
+          className="w-full text-left px-2 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-500 hover:bg-gray-100 transition-colors">
+          {notes || '+ Add analyst note…'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Building aggregate overlay ────────────────────────────────────────────────
+function BuildingAggregateLayer({ apiKey, visible }) {
+  const map = useMap()
+  const groupRef = useRef(null)
+
+  useEffect(() => {
+    if (!visible) {
+      if (groupRef.current) { map.removeLayer(groupRef.current); groupRef.current = null }
+      return
+    }
+
+    fetch('/api/v1/analytics/buildings', {
+      headers: { 'X-API-Key': apiKey }
+    })
+      .then(r => r.json())
+      .then(buildings => {
+        if (groupRef.current) map.removeLayer(groupRef.current)
+        const group = L.layerGroup()
+
+        buildings.forEach(b => {
+          if (!b.lat || !b.lng) return
+          const dmgColor = b.current_damage_level === 'complete' ? '#D12800'
+            : b.current_damage_level === 'partial' ? '#F5A623' : '#00833E'
+          const size = Math.min(40, 16 + b.report_count * 4)
+
+          const marker = L.marker([b.lat, b.lng], {
+            icon: L.divIcon({
+              html: `<div style="
+                width:${size}px;height:${size}px;
+                background:${dmgColor};
+                border:3px solid white;
+                border-radius:50%;
+                display:flex;align-items:center;justify-content:center;
+                color:white;font-weight:bold;font-size:${size > 24 ? 11 : 9}px;
+                box-shadow:0 2px 6px rgba(0,0,0,0.4);
+              ">${b.report_count}</div>`,
+              iconSize: [size, size],
+              iconAnchor: [size / 2, size / 2],
+              className: ''
+            })
+          })
+          marker.bindPopup(`
+            <div style="min-width:160px">
+              <strong>${b.report_count} reports</strong><br/>
+              Damage: <span style="color:${dmgColor};font-weight:bold">${b.current_damage_level}</span><br/>
+              Last report: ${new Date(b.last_reported_at).toLocaleDateString()}
+            </div>
+          `)
+          group.addLayer(marker)
+        })
+
+        map.addLayer(group)
+        groupRef.current = group
+      })
+      .catch(() => {})
+
+    return () => { if (groupRef.current) map.removeLayer(groupRef.current) }
+  }, [map, visible, apiKey])
+
+  return null
+}
+
 // ── Popup card ────────────────────────────────────────────────────────────────
-function ReportPopup({ report, onClose, onFlag, flagging, flagged, t }) {
+function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) {
   const props = report.properties || {}
   const damage = props.damage_level || 'partial'
   const bgClass = DAMAGE_BG[damage] || DAMAGE_BG.partial
@@ -292,6 +434,16 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, t }) {
               {flagged ? '✓' : '🚩'}
             </button>
           </div>
+
+          {/* Analyst actions — only rendered when an API key is available */}
+          {apiKey && props.id && (
+            <AnalystActions
+              reportId={props.id}
+              isVerified={props.is_verified}
+              analystNotes={props.analyst_notes}
+              apiKey={apiKey}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -299,7 +451,7 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, t }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showBuildings }) {
+export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showBuildings, showBuildingAggregate, apiKey }) {
   const { t } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
   const [selectedReport, setSelectedReport] = useState(null)
@@ -357,6 +509,8 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
         )}
 
         {showBuildings && <BuildingLayer />}
+
+        <BuildingAggregateLayer apiKey={apiKey || ''} visible={!!showBuildingAggregate} />
       </MapContainer>
 
       {selectedReport && (
@@ -366,6 +520,7 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
           onFlag={handleFlag}
           flagging={flagging}
           flagged={flagged}
+          apiKey={apiKey || ''}
           t={t}
         />
       )}

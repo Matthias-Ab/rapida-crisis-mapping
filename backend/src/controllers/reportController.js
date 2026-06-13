@@ -6,6 +6,7 @@ const { prisma } = require('../db/connection')
 const { processAndUploadPhoto, processAndUploadThumbnail } = require('../services/storage')
 const { checkDuplicate } = require('../services/duplicateCheck')
 const { refreshMaterializedView } = require('../services/analytics')
+const { broadcast } = require('../services/broadcaster')
 
 /**
  * Hash an IP address with SHA-256 for privacy-preserving storage.
@@ -36,7 +37,7 @@ async function createReport(req, res, next) {
       })
     }
 
-    if (!req.file) {
+    if (!req.files?.photo?.[0]) {
       return res.status(400).json({
         error: 'A photo is required',
         code: 'MISSING_PHOTO'
@@ -69,10 +70,23 @@ async function createReport(req, res, next) {
     const duplicateId = await checkDuplicate(lat, lng, building_id || null, session_id)
 
     // Upload full-resolution photo and thumbnail in parallel
+    const primaryFile = req.files.photo[0]
     const [photoResult, thumbnailResult] = await Promise.all([
-      processAndUploadPhoto(req.file.buffer),
-      processAndUploadThumbnail(req.file.buffer)
+      processAndUploadPhoto(primaryFile.buffer),
+      processAndUploadThumbnail(primaryFile.buffer)
     ])
+
+    // Process additional photos (up to 4 more)
+    const additionalPhotos = []
+    for (let i = 2; i <= 5; i++) {
+      const extraFile = req.files?.[`photo_${i}`]?.[0]
+      if (extraFile) {
+        try {
+          const extra = await processAndUploadPhoto(extraFile.buffer)
+          additionalPhotos.push(extra.photoUrl)
+        } catch { /* skip failed additional photos */ }
+      }
+    }
 
     const ipHash = req.ip ? hashIp(req.ip) : null
 
@@ -105,7 +119,8 @@ async function createReport(req, res, next) {
         photo_url, photo_key, thumbnail_url,
         damage_level, infra_type, infra_name, crisis_type,
         description, debris_present, electricity_status, health_services_status,
-        pressing_needs, session_id, ip_hash, language, duplicate_of
+        pressing_needs, session_id, ip_hash, language, duplicate_of,
+        additional_photos
       ) VALUES (
         ${reportId}::uuid,
         ${lat}::float8, ${lng}::float8,
@@ -117,10 +132,23 @@ async function createReport(req, res, next) {
         ${electricity_status || null}, ${health_services_status || null},
         ${parsedPressingNeeds}, ${session_id}, ${ipHash},
         ${language || 'en'},
-        ${duplicateId ? Prisma.sql`${duplicateId}::uuid` : Prisma.sql`NULL::uuid`}
+        ${duplicateId ? Prisma.sql`${duplicateId}::uuid` : Prisma.sql`NULL::uuid`},
+        ${additionalPhotos}
       )
     `
     const report = { id: reportId, createdAt: new Date(), photoUrl: photoResult.photoUrl, thumbnailUrl: thumbnailResult.thumbnailUrl }
+
+    // Broadcast to SSE clients
+    setImmediate(() => broadcast('new_report', {
+      id: reportId,
+      damage_level: damage_level,
+      infra_type: infra_type,
+      crisis_type: crisis_type,
+      latitude: lat,
+      longitude: lng,
+      created_at: new Date().toISOString(),
+      thumbnail_url: thumbnailResult?.thumbnailUrl || null
+    }))
 
     // Async refresh — fire and forget, no await
     setImmediate(() => refreshMaterializedView().catch(() => {}))

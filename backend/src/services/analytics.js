@@ -68,4 +68,62 @@ async function refreshMaterializedView() {
   }
 }
 
-module.exports = { getAnalytics, refreshMaterializedView }
+async function getTimeseries(hours = 48) {
+  const results = await prisma.$queryRaw`
+    SELECT
+      DATE_TRUNC('hour', created_at) AS hour,
+      COUNT(*)::int AS total,
+      SUM(CASE WHEN damage_level = 'none'     THEN 1 ELSE 0 END)::int AS none_count,
+      SUM(CASE WHEN damage_level = 'partial'  THEN 1 ELSE 0 END)::int AS partial_count,
+      SUM(CASE WHEN damage_level = 'complete' THEN 1 ELSE 0 END)::int AS complete_count
+    FROM reports
+    WHERE created_at > NOW() - INTERVAL '1 hour' * ${hours}
+    GROUP BY DATE_TRUNC('hour', created_at)
+    ORDER BY hour ASC
+  `
+  return results.map(r => ({
+    hour: r.hour,
+    total: r.total,
+    none: r.none_count,
+    partial: r.partial_count,
+    complete: r.complete_count
+  }))
+}
+
+async function getTopAreas(limit = 5) {
+  const results = await prisma.$queryRaw`
+    SELECT
+      location_text,
+      COUNT(*)::int AS report_count,
+      SUM(CASE WHEN damage_level = 'complete' THEN 1 ELSE 0 END)::int AS complete_count,
+      SUM(CASE WHEN damage_level = 'partial'  THEN 1 ELSE 0 END)::int AS partial_count,
+      AVG(latitude)::float  AS lat,
+      AVG(longitude)::float AS lng
+    FROM reports
+    WHERE location_text IS NOT NULL AND location_text != ''
+      AND created_at > NOW() - INTERVAL '7 days'
+    GROUP BY location_text
+    ORDER BY report_count DESC
+    LIMIT ${limit}
+  `
+  return results
+}
+
+async function getBuildingSummary() {
+  const results = await prisma.$queryRaw`
+    SELECT
+      building_id,
+      report_count::int,
+      last_reported_at,
+      current_damage_level,
+      avg_lat::float AS lat,
+      avg_lng::float AS lng
+    FROM building_damage_summary
+    WHERE report_count >= 2
+    ORDER BY report_count DESC
+    LIMIT 100
+  `
+  return results
+}
+
+module.exports = { getAnalytics, refreshMaterializedView, getTimeseries, getTopAreas, getBuildingSummary }

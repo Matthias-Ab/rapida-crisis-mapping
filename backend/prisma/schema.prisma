@@ -39,6 +39,9 @@ model Report {
   duplicateOfId        String?   @map("duplicate_of") @db.Uuid
   duplicateOf          Report?   @relation("Duplicates", fields: [duplicateOfId], references: [id])
   duplicates           Report[]  @relation("Duplicates")
+  analystNotes         String?   @map("analyst_notes")
+  verifiedAt           DateTime? @map("verified_at") @db.Timestamptz
+  additionalPhotos     String[]  @default([]) @map("additional_photos")
 
   @@map("reports")
   @@index([sessionId])

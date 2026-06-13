@@ -16,8 +16,6 @@ const DEFAULT_FILTERS = {
   flaggedOnly: false
 }
 
-const POLL_INTERVAL = 60000 // 60 seconds
-
 function buildQueryParams(filters) {
   const params = {}
   if (filters.damageLevels?.length) params.damage_level = filters.damageLevels.join(',')
@@ -39,6 +37,50 @@ function downloadBlob(blob, filename) {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// ── Top areas sidebar widget ──────────────────────────────────────────────────
+function TopAreas() {
+  const [areas, setAreas] = useState([])
+
+  useEffect(() => {
+    fetch('/api/v1/analytics/top-areas?limit=5')
+      .then(r => r.json())
+      .then(setAreas)
+      .catch(() => {})
+  }, [])
+
+  if (!areas.length) return null
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-3 mt-3">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Top Affected Areas</p>
+      <div className="space-y-2">
+        {areas.map((area, i) => {
+          const sevPct = area.report_count > 0
+            ? Math.round((area.complete_count / area.report_count) * 100)
+            : 0
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">{area.location_text}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-undp-red rounded-full"
+                      style={{ width: `${sevPct}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400">{area.report_count}</span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // ── Empty state overlay ───────────────────────────────────────────────────────
@@ -81,9 +123,12 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [showBuildings, setShowBuildings] = useState(false)
+  const [showBuildingAggregate, setShowBuildingAggregate] = useState(false)
+  const apiKey = sessionStorage.getItem('dashboard_key') || import.meta.env.VITE_DASHBOARD_KEY || ''
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [exporting, setExporting] = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [newReportCount, setNewReportCount] = useState(0)
   const pollRef = useRef(null)
   const lastFetchRef = useRef(null)
 
@@ -116,9 +161,57 @@ export default function Dashboard() {
     fetchReports(false)
   }, [fetchReports])
 
-  // Polling for new data
+  // SSE connection with polling fallback
   useEffect(() => {
-    pollRef.current = setInterval(async () => {
+    let eventSource = null
+    let destroyed = false
+
+    function getDashKey() {
+      return sessionStorage.getItem('dashboard_key') || import.meta.env.VITE_DASHBOARD_KEY || ''
+    }
+
+    function connect() {
+      if (destroyed) return
+      const key = getDashKey()
+      const url = key
+        ? `/api/v1/reports/stream?key=${encodeURIComponent(key)}`
+        : '/api/v1/reports/stream'
+      eventSource = new EventSource(url)
+
+      eventSource.addEventListener('new_report', (e) => {
+        try {
+          const report = JSON.parse(e.data)
+          setReports(prev => {
+            const prevFeatures = Array.isArray(prev) ? prev : (prev?.features || [])
+            const exists = prevFeatures.find(f => (f.id === report.id) || (f.properties?.id === report.id))
+            if (exists) return prev
+            const newFeature = {
+              type: 'Feature',
+              id: report.id,
+              geometry: { type: 'Point', coordinates: [report.longitude, report.latitude] },
+              properties: { ...report }
+            }
+            return Array.isArray(prev)
+              ? [...prev, newFeature]
+              : { ...prev, features: [...(prev?.features || []), newFeature], total: (prev?.total || 0) + 1 }
+          })
+          setLastRefresh(new Date())
+          setNewReportCount(n => n + 1)
+        } catch {
+          // ignore malformed events
+        }
+      })
+
+      eventSource.onerror = () => {
+        if (eventSource) eventSource.close()
+        if (!destroyed) setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+
+    // Polling fallback every 60s as backup
+    const poll = setInterval(async () => {
       if (!navigator.onLine) return
       setRefreshing(true)
       try {
@@ -130,10 +223,13 @@ export default function Dashboard() {
         const newFeatures = res.data?.features || res.data || []
         if (newFeatures.length > 0) {
           setReports((prev) => {
-            const existingIds = new Set(prev.map((r) => r.properties?.id))
+            const prevFeatures = Array.isArray(prev) ? prev : (prev?.features || [])
+            const existingIds = new Set(prevFeatures.map((r) => r.properties?.id))
             const toAdd = newFeatures.filter((r) => !existingIds.has(r.properties?.id))
             if (toAdd.length === 0) return prev
-            return [...prev, ...toAdd]
+            return Array.isArray(prev)
+              ? [...prev, ...toAdd]
+              : { ...prev, features: [...prevFeatures, ...toAdd] }
           })
           const now = new Date()
           lastFetchRef.current = now
@@ -144,9 +240,13 @@ export default function Dashboard() {
       } finally {
         setRefreshing(false)
       }
-    }, POLL_INTERVAL)
+    }, 60000)
 
-    return () => clearInterval(pollRef.current)
+    return () => {
+      destroyed = true
+      if (eventSource) eventSource.close()
+      clearInterval(poll)
+    }
   }, [filters])
 
   const handleExportCSV = async () => {
@@ -208,6 +308,12 @@ export default function Dashboard() {
         >
           {t('map_buildings')}
         </button>
+        <button
+          onClick={() => setShowBuildingAggregate((v) => !v)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showBuildingAggregate ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
+        >
+          Building Summary
+        </button>
 
         {/* Export */}
         <button
@@ -248,6 +354,9 @@ export default function Dashboard() {
             resultCount={reports.length}
             totalCount={totalReportCount}
           />
+          <div className="px-3">
+            <TopAreas />
+          </div>
           {sidebarOpen && (
             <div
               className="fixed inset-0 bg-black/40 z-[-1] md:hidden"
@@ -271,8 +380,19 @@ export default function Dashboard() {
               lastRefresh={lastRefresh}
               showHeatmap={showHeatmap}
               showBuildings={showBuildings}
+              showBuildingAggregate={showBuildingAggregate}
+              apiKey={apiKey}
             />
             {showEmpty && <EmptyState onRefresh={handleManualRefresh} />}
+            {newReportCount > 0 && (
+              <button
+                onClick={() => setNewReportCount(0)}
+                className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-undp-blue text-white text-xs font-bold rounded-full shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+              >
+                <span>New {newReportCount} report{newReportCount !== 1 ? 's' : ''}</span>
+                <span className="text-white/70 text-[10px]">click to dismiss</span>
+              </button>
+            )}
           </div>
         </main>
       </div>

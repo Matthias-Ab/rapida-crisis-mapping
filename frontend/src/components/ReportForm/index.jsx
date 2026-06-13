@@ -30,6 +30,7 @@ const STEP_ICONS = ['📷', '📍', '💥', '🏗️', '📝']
 
 const INITIAL_FORM = {
   photo: null,
+  additionalPhotos: [],
   location: null,
   damageLevel: null,
   infraType: null,
@@ -157,6 +158,9 @@ export default function ReportForm() {
     const fd = new FormData()
     Object.entries(formDataObj).forEach(([k, v]) => fd.append(k, v))
     if (form.photo) fd.append('photo', form.photo, 'photo.jpg')
+    form.additionalPhotos?.forEach((file, i) => {
+      fd.append(`photo_${i + 2}`, file, `photo_${i + 2}.jpg`)
+    })
 
     try {
       const res = await submitReport(fd)
@@ -408,6 +412,7 @@ export default function ReportForm() {
           <PhotoStep
             value={form.photo}
             onPhotoChange={(file) => updateForm('photo', file)}
+            onAdditionalPhotosChange={(files) => updateForm('additionalPhotos', files)}
             onAiSuggestion={handleAiSuggestion}
             error={errors.photo}
           />

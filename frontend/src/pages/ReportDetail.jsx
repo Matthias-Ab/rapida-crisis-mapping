@@ -97,6 +97,53 @@ function ShareButton({ url, title }) {
   )
 }
 
+function PhotoGallery({ photoUrl, additionalPhotos = [] }) {
+  const allPhotos = [photoUrl, ...additionalPhotos].filter(Boolean).map(publicMediaUrl)
+  const [active, setActive] = useState(0)
+  const [imgErrors, setImgErrors] = useState({})
+
+  if (!allPhotos.length) return (
+    <div className="h-48 flex items-center justify-center bg-gray-200 text-gray-400 text-center">
+      <div><div className="text-4xl mb-2">📷</div><p className="text-sm">Photo unavailable</p></div>
+    </div>
+  )
+
+  return (
+    <div className="bg-black">
+      {/* Main photo */}
+      {!imgErrors[active] ? (
+        <img
+          src={allPhotos[active]}
+          alt={`Photo ${active + 1}`}
+          className="w-full object-contain max-h-96"
+          onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
+        />
+      ) : (
+        <div className="h-48 flex items-center justify-center text-gray-400">
+          <div className="text-center"><div className="text-4xl mb-2">📷</div><p className="text-sm">Photo unavailable</p></div>
+        </div>
+      )}
+
+      {/* Thumbnail strip — only if multiple photos */}
+      {allPhotos.length > 1 && (
+        <div className="flex gap-1 p-2 overflow-x-auto">
+          {allPhotos.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setActive(i)}
+              className={`flex-shrink-0 w-14 h-14 rounded overflow-hidden border-2 transition-colors ${
+                i === active ? 'border-undp-blue' : 'border-transparent opacity-60 hover:opacity-100'
+              }`}
+            >
+              <img src={url} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ReportDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -108,7 +155,6 @@ export default function ReportDetail() {
   const [error, setError] = useState(null)
   const [flagged, setFlagged] = useState(false)
   const [flagging, setFlagging] = useState(false)
-  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -152,8 +198,6 @@ export default function ReportDetail() {
   )
 
   const dmg = DAMAGE_CONFIG[report.damage_level] || DAMAGE_CONFIG.partial
-  const photoUrl = publicMediaUrl(report.photo_url)
-  const thumbUrl = publicMediaUrl(report.thumbnail_url)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -185,24 +229,8 @@ export default function ReportDetail() {
       </header>
 
       <div className="max-w-2xl mx-auto pb-10">
-        {/* Photo */}
-        <div className="bg-black relative">
-          {!imgError && photoUrl ? (
-            <img
-              src={photoUrl}
-              alt="Damage photo"
-              className="w-full max-h-96 object-contain"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400 bg-gray-200">
-              <div className="text-center">
-                <div className="text-4xl mb-2">📷</div>
-                <p className="text-sm">Photo unavailable</p>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Photo gallery */}
+        <PhotoGallery photoUrl={report.photo_url} additionalPhotos={report.additional_photos || []} />
 
         <div className="px-4 pt-5 space-y-5">
           {/* Damage level badge */}

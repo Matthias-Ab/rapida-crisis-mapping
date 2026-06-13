@@ -66,4 +66,16 @@ export const exportGeoJSON = (params = {}) =>
 export const flagReport = (id, sessionId) =>
   api.post(`/reports/${id}/flag`, { session_id: sessionId })
 
+export const patchReport = (id, data) => api.patch(`/reports/${id}`, data, {
+  headers: { 'X-API-Key': getDashboardKey() }
+})
+
+export const getTimeseries = (hours = 48) => api.get('/analytics/timeseries', { params: { hours } })
+
+export const getTopAreas = (limit = 5) => api.get('/analytics/top-areas', { params: { limit } })
+
+export const getBuildingSummary = () => api.get('/analytics/buildings', {
+  headers: { 'X-API-Key': getDashboardKey() }
+})
+
 export default api

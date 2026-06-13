@@ -1,9 +1,10 @@
 const router = require('express').Router()
 const multer = require('multer')
 const rateLimit = require('express-rate-limit')
-const { body, query, param } = require('express-validator')
+const { body, query, param, validationResult } = require('express-validator')
 const auth = require('../middleware/auth')
 const { createReport, getReports, getReport, flagReport } = require('../controllers/reportController')
+const { subscribe } = require('../services/broadcaster')
 
 // Store uploads in memory so Sharp can process the buffer directly
 const storage = multer.memoryStorage()
@@ -48,12 +49,47 @@ const flagLimiter = rateLimit({
 })
 
 // -------------------------------------------------------------------
+// GET /api/v1/reports/stream  — SSE, auth via query param
+// -------------------------------------------------------------------
+router.get('/stream', (req, res) => {
+  const key = req.query.key || req.headers['x-api-key']
+  if (!key || key !== process.env.DASHBOARD_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' })
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  })
+  res.write('retry: 5000\n\n')
+  res.write(`data: ${JSON.stringify({ type: 'connected', ts: new Date() })}\n\n`)
+
+  const heartbeat = setInterval(() => {
+    res.write(`: heartbeat\n\n`)
+  }, 25000)
+
+  const unsub = subscribe(({ event, data }) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  })
+
+  req.on('close', () => { unsub(); clearInterval(heartbeat) })
+})
+
+// -------------------------------------------------------------------
 // POST /api/v1/reports  — public, rate-limited, requires photo upload
 // -------------------------------------------------------------------
 router.post(
   '/',
   submissionLimiter,
-  upload.single('photo'),
+  upload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'photo_2', maxCount: 1 },
+    { name: 'photo_3', maxCount: 1 },
+    { name: 'photo_4', maxCount: 1 },
+    { name: 'photo_5', maxCount: 1 },
+  ]),
   [
     body('latitude').isFloat({ min: -90, max: 90 }).withMessage('latitude must be between -90 and 90'),
     body('longitude').isFloat({ min: -180, max: 180 }).withMessage('longitude must be between -180 and 180'),
@@ -118,5 +154,35 @@ router.post(
   [param('id').isUUID().withMessage('id must be a valid UUID')],
   flagReport
 )
+
+// -------------------------------------------------------------------
+// PATCH /api/v1/reports/:id  — analyst verify/flag/notes
+// -------------------------------------------------------------------
+router.patch('/:id', auth, [
+  param('id').isUUID(),
+  body('is_verified').optional().isBoolean(),
+  body('is_flagged').optional().isBoolean(),
+  body('analyst_notes').optional().isString().isLength({ max: 1000 }).trim()
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() })
+
+    const { id } = req.params
+    const { is_verified, is_flagged, analyst_notes } = req.body
+    const { prisma } = require('../db/connection')
+
+    const updates = {}
+    if (is_verified !== undefined) {
+      updates.isVerified = Boolean(is_verified)
+      updates.verifiedAt = is_verified ? new Date() : null
+    }
+    if (is_flagged !== undefined) updates.isFlagged = Boolean(is_flagged)
+    if (analyst_notes !== undefined) updates.analystNotes = analyst_notes
+
+    const report = await prisma.report.update({ where: { id }, data: updates })
+    res.json({ id: report.id, is_verified: report.isVerified, is_flagged: report.isFlagged, analyst_notes: report.analystNotes })
+  } catch (err) { next(err) }
+})
 
 module.exports = router
