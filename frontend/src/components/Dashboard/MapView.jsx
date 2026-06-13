@@ -9,6 +9,15 @@ import LoadingSpinner from '../shared/LoadingSpinner'
 import { flagReport } from '../../services/api'
 import { useStore } from '../../store'
 
+// ── FlyTo handler ─────────────────────────────────────────────────────────────
+function FlyToHandler({ target }) {
+  const map = useMap()
+  useEffect(() => {
+    if (target) map.flyTo([target.lat, target.lng], target.zoom || 14, { duration: 1.2 })
+  }, [target, map])
+  return null
+}
+
 // Fix Leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -451,7 +460,7 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showBuildings, showBuildingAggregate, apiKey }) {
+export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showBuildings, showBuildingAggregate, apiKey, flyTarget }) {
   const { t } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
   const [selectedReport, setSelectedReport] = useState(null)
@@ -511,6 +520,8 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
         {showBuildings && <BuildingLayer />}
 
         <BuildingAggregateLayer apiKey={apiKey || ''} visible={!!showBuildingAggregate} />
+
+        <FlyToHandler target={flyTarget} />
       </MapContainer>
 
       {selectedReport && (

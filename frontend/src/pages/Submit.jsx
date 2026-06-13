@@ -264,6 +264,8 @@ export default function Submit() {
           <Link to="/dashboard" className="text-undp-blue hover:underline">{t('dashboard')}</Link>
           <span>·</span>
           <Link to="/map" className="text-undp-blue hover:underline">{t('view_map')}</Link>
+          <span>·</span>
+          <Link to="/situation-report" className="text-undp-blue hover:underline">Situation Report</Link>
         </div>
       </footer>
     </div>

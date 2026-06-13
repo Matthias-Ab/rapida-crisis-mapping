@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getReports, exportCSV, exportGeoJSON } from '../../services/api'
 import FilterSidebar from './FilterSidebar'
@@ -39,8 +40,27 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+// ── Trend badge ───────────────────────────────────────────────────────────────
+function TrendBadge() {
+  const [trend, setTrend] = useState(null)
+  useEffect(() => {
+    fetch('/api/v1/analytics/trends?hours=3')
+      .then(r => r.json()).then(setTrend).catch(() => {})
+  }, [])
+  if (!trend) return null
+  const up = trend.change_pct > 0
+  const stable = trend.change_pct === 0
+  return (
+    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+      up ? 'bg-red-100 text-red-700' : stable ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'
+    }`}>
+      {up ? '↑' : stable ? '→' : '↓'} {Math.abs(trend.change_pct)}% (3h)
+    </span>
+  )
+}
+
 // ── Top areas sidebar widget ──────────────────────────────────────────────────
-function TopAreas() {
+function TopAreas({ onAreaClick }) {
   const [areas, setAreas] = useState([])
 
   useEffect(() => {
@@ -55,30 +75,104 @@ function TopAreas() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-3 mt-3">
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Top Affected Areas</p>
-      <div className="space-y-2">
+      <div className="space-y-1">
         {areas.map((area, i) => {
           const sevPct = area.report_count > 0
             ? Math.round((area.complete_count / area.report_count) * 100)
             : 0
           return (
-            <div key={i} className="flex items-center gap-2">
+            <button
+              key={i}
+              onClick={() => onAreaClick({ lat: parseFloat(area.lat), lng: parseFloat(area.lng), zoom: 13 })}
+              className="w-full flex items-center gap-2 text-left hover:bg-blue-50 rounded-lg p-1.5 transition-colors group"
+            >
               <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">{area.location_text}</p>
+                <p className="text-xs font-medium text-gray-800 group-hover:text-undp-blue truncate transition-colors">{area.location_text}</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-undp-red rounded-full"
-                      style={{ width: `${sevPct}%` }}
-                    />
+                    <div className="h-full bg-undp-red rounded-full" style={{ width: `${sevPct}%` }} />
                   </div>
-                  <span className="text-[10px] text-gray-400">{area.report_count}</span>
+                  <span className="text-[10px] text-gray-400">{area.report_count} reports</span>
                 </div>
               </div>
-            </div>
+              <svg className="w-3 h-3 text-gray-300 group-hover:text-undp-blue flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── Priority Response Queue ───────────────────────────────────────────────────
+function PriorityQueue({ apiKey, onReportClick }) {
+  const [reports, setReports] = useState([])
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    if (!apiKey) return
+    fetch('/api/v1/analytics/priority?limit=10', {
+      headers: { 'X-API-Key': apiKey }
+    })
+      .then(r => r.json())
+      .then(setReports)
+      .catch(() => {})
+  }, [apiKey])
+
+  if (!reports.length) return null
+
+  const DAMAGE_COLORS = { complete: 'text-undp-red', partial: 'text-undp-amber', none: 'text-undp-green' }
+  const DAMAGE_ICONS  = { complete: '🔴', partial: '⚠️', none: '✅' }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 mt-3 overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🚨</span>
+          <p className="text-xs font-bold text-gray-700">Priority Response Queue</p>
+          <span className="bg-undp-red text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{reports.length}</span>
+        </div>
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+          {reports.map((r, i) => (
+            <button
+              key={r.id}
+              onClick={() => onReportClick(r)}
+              className="w-full flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-left transition-colors"
+            >
+              <span className="text-xs font-black text-gray-300 w-4 pt-0.5">{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-xs">{DAMAGE_ICONS[r.damage_level]}</span>
+                  <span className={`text-xs font-bold capitalize ${DAMAGE_COLORS[r.damage_level]}`}>
+                    {r.damage_level}
+                  </span>
+                  <span className="text-[10px] text-gray-400">·</span>
+                  <span className="text-[10px] text-gray-500 capitalize truncate">
+                    {(r.infra_type || '').replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 truncate">{r.location_text || r.crisis_type}</p>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <span className="text-[10px] font-bold text-undp-blue">{r.priority_score}</span>
+                <p className="text-[9px] text-gray-400">score</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -129,8 +223,13 @@ export default function Dashboard() {
   const [exporting, setExporting] = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
   const [newReportCount, setNewReportCount] = useState(0)
+  const [flyTarget, setFlyTarget] = useState(null)
+  const [timelineHours, setTimelineHours] = useState(72)
+  const [timelineActive, setTimelineActive] = useState(false)
+  const [timelinePlaying, setTimelinePlaying] = useState(false)
   const pollRef = useRef(null)
   const lastFetchRef = useRef(null)
+  const playRef = useRef(null)
 
   const fetchReports = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
@@ -249,6 +348,30 @@ export default function Dashboard() {
     }
   }, [filters])
 
+  // Timeline play logic
+  useEffect(() => {
+    if (timelinePlaying) {
+      playRef.current = setInterval(() => {
+        setTimelineHours(h => {
+          if (h <= 1) { setTimelinePlaying(false); return 72 }
+          return Math.max(1, h - 2)
+        })
+      }, 200)
+    } else {
+      clearInterval(playRef.current)
+    }
+    return () => clearInterval(playRef.current)
+  }, [timelinePlaying])
+
+  // Derived: filter reports by timeline
+  const allFeatures = Array.isArray(reports) ? reports : (reports?.features || [])
+  const visibleReports = timelineActive
+    ? { type: 'FeatureCollection', features: allFeatures.filter(f => {
+        const age = (Date.now() - new Date(f.properties?.created_at || f.properties?.createdAt || 0).getTime()) / 3600000
+        return age <= timelineHours
+      })}
+    : reports
+
   const handleExportCSV = async () => {
     setExporting('csv')
     try {
@@ -314,6 +437,12 @@ export default function Dashboard() {
         >
           Building Summary
         </button>
+        <button
+          onClick={() => setTimelineActive(v => !v)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${timelineActive ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
+        >
+          ⏱ Timeline
+        </button>
 
         {/* Export */}
         <button
@@ -332,6 +461,13 @@ export default function Dashboard() {
           {exporting === 'geojson' ? <LoadingSpinner size="sm" color="white" /> : '🗺️'}
           {t('export_geojson')}
         </button>
+
+        <Link
+          to="/situation-report"
+          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 hover:bg-white/30 transition-colors hidden sm:inline-flex items-center gap-1"
+        >
+          📋 Situation Report
+        </Link>
 
         {refreshing && (
           <span className="text-xs opacity-70 animate-pulse">{t('map_refresh')}</span>
@@ -353,9 +489,14 @@ export default function Dashboard() {
             onFiltersChange={setFilters}
             resultCount={reports.length}
             totalCount={totalReportCount}
+            trendBadge={<TrendBadge />}
           />
           <div className="px-3">
-            <TopAreas />
+            <TopAreas onAreaClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />
+            <PriorityQueue
+              apiKey={apiKey}
+              onReportClick={(r) => setFlyTarget({ lat: r.latitude, lng: r.longitude, zoom: 17 })}
+            />
           </div>
           {sidebarOpen && (
             <div
@@ -372,26 +513,56 @@ export default function Dashboard() {
             <ReportCountChip shown={reports.length} total={totalReportCount} />
           </div>
 
-          <div className="rounded-2xl overflow-hidden flex-1 shadow-sm border border-gray-200 relative">
-            <MapView
-              reports={reports}
-              loading={loading}
-              refreshing={refreshing}
-              lastRefresh={lastRefresh}
-              showHeatmap={showHeatmap}
-              showBuildings={showBuildings}
-              showBuildingAggregate={showBuildingAggregate}
-              apiKey={apiKey}
-            />
-            {showEmpty && <EmptyState onRefresh={handleManualRefresh} />}
-            {newReportCount > 0 && (
-              <button
-                onClick={() => setNewReportCount(0)}
-                className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-undp-blue text-white text-xs font-bold rounded-full shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
-              >
-                <span>New {newReportCount} report{newReportCount !== 1 ? 's' : ''}</span>
-                <span className="text-white/70 text-[10px]">click to dismiss</span>
-              </button>
+          <div className="rounded-2xl overflow-hidden flex-1 shadow-sm border border-gray-200 relative flex flex-col">
+            <div className="flex-1 relative">
+              <MapView
+                reports={Array.isArray(visibleReports) ? visibleReports : (visibleReports?.features || [])}
+                loading={loading}
+                refreshing={refreshing}
+                lastRefresh={lastRefresh}
+                showHeatmap={showHeatmap}
+                showBuildings={showBuildings}
+                showBuildingAggregate={showBuildingAggregate}
+                apiKey={apiKey}
+                flyTarget={flyTarget}
+              />
+              {showEmpty && <EmptyState onRefresh={handleManualRefresh} />}
+              {newReportCount > 0 && (
+                <button
+                  onClick={() => setNewReportCount(0)}
+                  className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-undp-blue text-white text-xs font-bold rounded-full shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+                >
+                  <span>New {newReportCount} report{newReportCount !== 1 ? 's' : ''}</span>
+                  <span className="text-white/70 text-[10px]">click to dismiss</span>
+                </button>
+              )}
+            </div>
+            {timelineActive && (
+              <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center gap-3 flex-shrink-0">
+                <button
+                  onClick={() => setTimelinePlaying(v => !v)}
+                  className="text-undp-blue font-bold text-sm w-6"
+                >
+                  {timelinePlaying ? '⏸' : '▶'}
+                </button>
+                <div className="flex-1">
+                  <input
+                    type="range" min="1" max="72" step="1"
+                    value={timelineHours}
+                    onChange={e => { setTimelineHours(Number(e.target.value)); setTimelinePlaying(false) }}
+                    className="w-full accent-undp-blue"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 -mt-0.5">
+                    <span>72h ago</span><span>36h ago</span><span>now</span>
+                  </div>
+                </div>
+                <div className="text-xs text-right text-gray-600 min-w-fit">
+                  <p className="font-bold">
+                    {(Array.isArray(visibleReports) ? visibleReports : (visibleReports?.features || [])).length} reports
+                  </p>
+                  <p className="text-[10px] text-gray-400">≤ {timelineHours}h ago</p>
+                </div>
+              </div>
             )}
           </div>
         </main>

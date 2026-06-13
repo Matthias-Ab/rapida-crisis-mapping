@@ -30,7 +30,7 @@ const CRISIS_OPTIONS = [
   { value: 'civil_unrest', label: 'crisis_civil_unrest', emoji: '🚧' }
 ]
 
-export default function FilterSidebar({ filters, onFiltersChange, resultCount, totalCount }) {
+export default function FilterSidebar({ filters, onFiltersChange, resultCount, totalCount, trendBadge }) {
   const { t } = useTranslation()
 
   const toggleArray = (field, value) => {
@@ -58,7 +58,10 @@ export default function FilterSidebar({ filters, onFiltersChange, resultCount, t
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-gray-800 text-sm uppercase tracking-wide">Filters</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-gray-800 text-sm uppercase tracking-wide">Filters</h2>
+            {trendBadge}
+          </div>
           <button
             onClick={handleClear}
             className="text-xs text-undp-blue font-semibold hover:underline"

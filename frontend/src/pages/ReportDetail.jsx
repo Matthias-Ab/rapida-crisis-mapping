@@ -50,6 +50,18 @@ const DAMAGE_MARKER = L.divIcon({
   className: '',
 })
 
+function qualityScore(report) {
+  let score = 0
+  if (report.photo_url)                    score += 25 // photo
+  if (report.latitude && report.longitude) score += 25 // GPS
+  if (report.building_id)                  score += 15 // building matched
+  if (report.description?.length > 20)     score += 15 // description
+  if (report.pressing_needs?.length > 0)   score += 10 // pressing needs
+  if (report.infra_name)                   score +=  5 // named facility
+  if (report.what3words)                   score +=  5 // what3words
+  return score
+}
+
 // Share icon SVG
 function ShareIcon({ className }) {
   return (
@@ -198,6 +210,7 @@ export default function ReportDetail() {
   )
 
   const dmg = DAMAGE_CONFIG[report.damage_level] || DAMAGE_CONFIG.partial
+  const quality = qualityScore(report)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -222,6 +235,12 @@ export default function ReportDetail() {
         {report.is_flagged && (
           <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full font-medium">⚑ Flagged</span>
         )}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+          quality >= 80 ? 'bg-green-100 text-green-700' :
+          quality >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+        }`} title={`Data quality: ${quality}%`}>
+          {quality >= 80 ? '◉' : quality >= 50 ? '◎' : '○'} {quality}%
+        </span>
         <ShareButton
           url={window.location.href}
           title={`RAPIDA Report – ${DAMAGE_CONFIG[report.damage_level]?.label}`}

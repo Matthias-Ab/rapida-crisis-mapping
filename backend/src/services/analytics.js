@@ -126,4 +126,82 @@ async function getBuildingSummary() {
   return results
 }
 
-module.exports = { getAnalytics, refreshMaterializedView, getTimeseries, getTopAreas, getBuildingSummary }
+// Trend: compare last N hours vs previous N hours (% change)
+async function getTrends(hours = 3) {
+  const [current, previous] = await Promise.all([
+    prisma.report.count({
+      where: { createdAt: { gte: new Date(Date.now() - hours * 3600000) } }
+    }),
+    prisma.report.count({
+      where: {
+        createdAt: {
+          gte: new Date(Date.now() - 2 * hours * 3600000),
+          lt:  new Date(Date.now() - hours * 3600000)
+        }
+      }
+    })
+  ])
+  const pct = previous === 0 ? (current > 0 ? 100 : 0)
+    : Math.round(((current - previous) / previous) * 100)
+  return { current, previous, change_pct: pct, hours }
+}
+
+// Priority: score reports by urgency = damage × infra_weight × recency_decay
+// complete=100, partial=50, none=10
+// utility/community/government = 1.5/1.4/1.3, others lower
+// Decays exponentially over 48h
+async function getPriorityReports(limit = 15) {
+  const cutoff = new Date(Date.now() - 7 * 24 * 3600000)
+  const rows = await prisma.$queryRaw`
+    SELECT
+      id, damage_level, infra_type, crisis_type,
+      location_text, description, thumbnail_url,
+      created_at, is_verified, latitude, longitude,
+      EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0 AS age_hours
+    FROM reports
+    WHERE created_at > ${cutoff}
+      AND is_verified = false
+    ORDER BY created_at DESC
+    LIMIT 200
+  `
+
+  const DAMAGE_W  = { complete: 100, partial: 50, none: 10 }
+  const INFRA_W   = {
+    utility: 1.5, community: 1.4, government: 1.3,
+    transport_communication: 1.2, residential: 1.0,
+    commercial: 0.9, public_recreation: 0.8, other: 1.0
+  }
+
+  return rows
+    .map(r => ({
+      ...r,
+      priority_score: Math.round(
+        (DAMAGE_W[r.damage_level] || 50) *
+        (INFRA_W[r.infra_type]   || 1.0) *
+        Math.exp(-Number(r.age_hours) / 48) * 100
+      ) / 100
+    }))
+    .sort((a, b) => b.priority_score - a.priority_score)
+    .slice(0, limit)
+}
+
+// Situation report: full snapshot for one-click export
+async function getSituationReport() {
+  const [analytics, timeseries, topAreas, priorities, trends] = await Promise.all([
+    getAnalytics(),
+    getTimeseries(72),
+    getTopAreas(10),
+    getPriorityReports(20),
+    getTrends(3)
+  ])
+  return {
+    generated_at: new Date().toISOString(),
+    analytics,
+    timeseries,
+    top_areas: topAreas,
+    priority_reports: priorities,
+    trends
+  }
+}
+
+module.exports = { getAnalytics, refreshMaterializedView, getTimeseries, getTopAreas, getBuildingSummary, getTrends, getPriorityReports, getSituationReport }

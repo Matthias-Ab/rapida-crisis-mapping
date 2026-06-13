@@ -78,4 +78,14 @@ export const getBuildingSummary = () => api.get('/analytics/buildings', {
   headers: { 'X-API-Key': getDashboardKey() }
 })
 
+export const getSituationReport = () => api.get('/analytics/situation-report', {
+  headers: { 'X-API-Key': getDashboardKey() }
+})
+
+export const getPriorityReports = (limit = 15) => api.get('/analytics/priority', {
+  params: { limit }, headers: { 'X-API-Key': getDashboardKey() }
+})
+
+export const getTrends = (hours = 3) => api.get('/analytics/trends', { params: { hours } })
+
 export default api
