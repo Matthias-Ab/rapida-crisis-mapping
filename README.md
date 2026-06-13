@@ -110,8 +110,12 @@ docker-compose up -d
 Wait approximately 30 seconds for all services to pass their health checks, then open:
 
 - **http://localhost** — public damage report submission form
-- **http://localhost/dashboard** — analyst dashboard (requires `DASHBOARD_API_KEY` in the `X-API-Key` header, or the dashboard login screen)
+- **http://localhost/dashboard** — analyst dashboard
+- **http://localhost/situation-report** — one-click printable situation report
 - **http://localhost:9001** — MinIO console (access key / secret key from `.env`)
+
+> **Dashboard API key (default for local dev):** `rapida-dev-key-2026`
+> Set `DASHBOARD_API_KEY` in `.env` to change it. Use `openssl rand -hex 32` for production.
 
 To follow logs:
 

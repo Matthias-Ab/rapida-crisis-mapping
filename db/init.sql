@@ -124,3 +124,12 @@ CREATE TRIGGER update_reports_updated_at
     BEFORE UPDATE ON reports
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
+
+-- Added post-initial migration: analyst workflow + multi-photo support
+ALTER TABLE reports
+  ADD COLUMN IF NOT EXISTS analyst_notes    TEXT,
+  ADD COLUMN IF NOT EXISTS verified_at      TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS additional_photos TEXT[] DEFAULT '{}';
+
+CREATE INDEX IF NOT EXISTS reports_is_verified_idx ON reports(is_verified);
+CREATE INDEX IF NOT EXISTS reports_is_flagged_idx  ON reports(is_flagged);
