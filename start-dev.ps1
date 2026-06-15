@@ -27,7 +27,7 @@ $env:MINIO_BUCKET    = "crisis-reports"
 $env:MINIO_USE_SSL   = "false"
 $env:MINIO_PUBLIC_URL = "http://localhost:9000"
 $env:DASHBOARD_API_KEY = "rapida-dev-key-2026"
-$env:GROQ_API_KEY    = "YOUR_GROQ_API_KEY"
+$env:GROQ_API_KEY    = (Get-Content .env -ErrorAction SilentlyContinue | Where-Object { $_ -match '^GROQ_API_KEY=' } | ForEach-Object { $_.Split('=',2)[1] })
 $env:NODE_ENV        = "development"
 $env:PORT            = "3001"
 

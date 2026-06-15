@@ -36,7 +36,7 @@ MINIO_BUCKET=crisis-reports \
 MINIO_USE_SSL=false \
 MINIO_PUBLIC_URL=http://localhost:9000 \
 DASHBOARD_API_KEY=rapida-dev-key-2026 \
-GROQ_API_KEY=YOUR_GROQ_API_KEY \
+GROQ_API_KEY=$(grep '^GROQ_API_KEY=' .env 2>/dev/null | cut -d= -f2) \
 NODE_ENV=development \
 PORT=3001 \
 node src/app.js &

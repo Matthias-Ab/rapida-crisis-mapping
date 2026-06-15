@@ -19,6 +19,7 @@ The platform is designed around three core principles: **anonymity** (no persona
 
 **Reporting (Public / Field)**
 - Mobile-first submission form designed for 375 px screens, usable in full sunlight
+- **Voice-to-Report** — tap the microphone button and describe the damage out loud; Web Speech API transcribes in any of the 6 UN languages and NLP auto-fills damage level, infrastructure type, crisis type, and pressing needs; text fallback for environments without mic access
 - In-browser AI damage classification powered by `@xenova/transformers` (ONNX — no API key, no server round-trip) — provides a suggested damage level with confidence percentage after the user selects a photo
 - Camera capture or gallery upload; photo processed server-side with Sharp (resize to 1920 px, strip EXIF metadata for privacy, generate 400 px thumbnail)
 - GPS auto-detection with reverse geocoding via Nominatim; manual fallback via landmark text field
@@ -38,13 +39,31 @@ The platform is designed around three core principles: **anonymity** (no persona
 
 **Analyst Dashboard (Protected)**
 - Full-screen Leaflet map with colour-coded circle markers (green / amber / red by damage level)
-- Marker clustering (Leaflet.markercluster) at low zoom; heatmap toggle layer (Leaflet.heat)
+- Marker clustering (Leaflet.markercluster) at low zoom; damage heatmap toggle layer (Leaflet.heat)
+- **Needs heatmap layer** — toggle per humanitarian need type (rescue, medical, water, food, shelter, electricity); markers filter to match selected need so cluster counts reflect the selection
+- **Photo evidence gallery** — thumbnail grid of the highest-priority reports for rapid visual triage without opening individual records
+- **Mass incident auto-detection** — backend scans every 5 minutes for 3+ complete-damage reports within ~1 km in the last 24 hours; pulsing red alert banner links directly to the cluster on the map
+- **Response dispatch tracker** — one-click "✓ Dispatch" button on every priority queue item marks the report as responded, removes it from the queue, and prevents duplicate team deployment
+- **AI Insights panel** — on-demand generation of 3 data-driven intelligence observations from live field data using Llama 3.3 70B (Groq)
+- Estimated affected population computed from damage breakdown (~100 people per complete-damage report, ~30 per partial) shown in stats bar
 - Click any marker to open a popup with thumbnail, damage classification badges, infrastructure type, crisis type, timestamp, and full-report link
-- Real-time polling every 60 seconds for new reports
+- Real-time SSE streaming for instant new-report notifications (exponential backoff reconnect)
 - Filter sidebar: date range, damage level, infrastructure type, crisis type, flagged-only toggle, unverified-only toggle
-- Stats bar: total reports, reports today, unique buildings affected, most common damage level
+- Stats bar: total reports, reports today, unique buildings affected, estimated people affected, most common damage level
 - One-click CSV export (filtered or all, up to 100,000 rows)
 - One-click GeoJSON export (filtered or all, compatible with QGIS and ArcGIS)
+
+**Situation Report & AI Narrative**
+- **Auto-SITREP** — one-click generation of a UN-style Situation Report from live data using Llama 3.3 70B via Groq API; covers Executive Summary, Situation Overview, Key Findings, Immediate Needs, and Recommended Actions
+- Available in all 6 UN languages via a language dropdown — regenerates the full narrative on selection
+- **WhatsApp share** and **email share** buttons for instant distribution to field coordinators
+- Print / Save as PDF button with print-optimised layout
+- Priority response queue ranked by damage severity × infrastructure criticality × recency decay
+
+**Report Detail**
+- **Inline translation** — 🌐 Translate button on any report description translates to the analyst's current UI language via Groq; solves the language barrier when Arabic/Russian/Chinese-language reports are reviewed by English-speaking coordinators
+- Quality score badge (0–100%) based on photo, GPS, building match, description, pressing needs
+- Public shareable link; crowdsource flagging (rate-limited)
 
 **Internationalisation**
 - All six official UN languages: English, Arabic (ar), Chinese Simplified (zh), French (fr), Russian (ru), Spanish (es)
@@ -85,12 +104,49 @@ The platform is designed around three core principles: **anonymity** (no persona
 
 ## Live Demo
 
+> **Live demo:** _deployment in progress — URL will be added before June 23 submission._
 > To deploy your own instance, see [DEPLOYMENT.md](DEPLOYMENT.md) or use one of the one-click options below.
 
 ### One-click deploy options
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
 [![Deploy to Fly.io](https://img.shields.io/badge/Deploy%20to-Fly.io-purple?style=for-the-badge&logo=fly.io)](https://fly.io)
+
+---
+
+## One-Click Setup
+
+After cloning, run the setup script for your platform. It checks prerequisites, writes `.env`, installs all dependencies, starts Docker services, and builds the frontend automatically.
+
+**Linux / macOS:**
+```bash
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
+cd rapida-crisis-mapping
+chmod +x setup.sh && ./setup.sh
+```
+
+**Windows (PowerShell as Administrator):**
+```powershell
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
+cd rapida-crisis-mapping
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+.\setup.ps1
+```
+
+After setup, start the full stack:
+```bash
+docker compose up -d          # all services in Docker
+# OR for hot-reload dev mode:
+./start-dev.sh                # Linux/Mac
+.\start-dev.ps1               # Windows
+```
+
+| URL | Service |
+|---|---|
+| http://localhost:5173 | App (report submission) |
+| http://localhost:5173/dashboard | Analyst dashboard (key: `rapida-dev-key-2026`) |
+| http://localhost:5173/situation-report | AI Situation Report |
+| http://localhost:9001 | MinIO console (`minioadmin` / `minioadmin`) |
 
 ---
 
@@ -208,6 +264,7 @@ All configuration is driven by environment variables. Copy `.env.example` to `.e
 | `DASHBOARD_API_KEY` | Secret key required in `X-API-Key` header for protected routes. Generate with `openssl rand -hex 32` | _(must be set)_ |
 | `CORS_ORIGINS` | Comma-separated list of allowed CORS origins | `http://localhost:5173,https://your-domain.com` |
 | `IP_HASH_SALT` | Random salt appended to client IPs before SHA-256 hashing. Generate with `openssl rand -hex 16` | _(optional but recommended)_ |
+| `GROQ_API_KEY` | Groq API key for AI SITREP narrative, AI Insights, and report translation (Llama 3.3 70B). Get a free key at [console.groq.com](https://console.groq.com) | _(required for AI features)_ |
 | `VITE_API_BASE_URL` | API base URL baked into the frontend at build time | `/api/v1` (Docker) or `http://localhost:3001/api/v1` (manual) |
 | `VITE_DASHBOARD_KEY` | Dashboard API key baked into the frontend (used by the dashboard login screen) | _(must match `DASHBOARD_API_KEY`)_ |
 | `VITE_ENABLE_AI` | Enable/disable client-side AI damage classification | `true` |
