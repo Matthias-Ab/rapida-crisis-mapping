@@ -119,7 +119,21 @@ async function seed() {
   console.log(`✓ Inserted ${ok}  ✗ Failed ${fail}`)
   const [{ n }] = await prisma.$queryRaw`SELECT COUNT(*)::int AS n FROM reports`
   console.log(`Total in DB: ${n}`)
-  await prisma.$disconnect()
+  // Only disconnect if running as a standalone script, not when called from app.js
+  if (require.main === module) await prisma.$disconnect()
+  return ok
 }
 
-seed().catch(async e => { console.error(e); await prisma.$disconnect(); process.exit(1) })
+// Auto-seed: called from app.js if the DB is empty on startup
+async function autoSeedIfEmpty(prismaClient) {
+  const count = await prismaClient.report.count()
+  if (count > 10) return  // Already has data
+  console.log(`Empty DB (${count} reports) — running demo seed…`)
+  await seed()
+}
+
+if (require.main === module) {
+  seed().catch(async e => { console.error(e); await prisma.$disconnect(); process.exit(1) })
+}
+
+module.exports = { autoSeedIfEmpty }

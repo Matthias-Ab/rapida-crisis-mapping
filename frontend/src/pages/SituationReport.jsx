@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 const DAMAGE_COLORS = {
@@ -35,6 +35,10 @@ export default function SituationReport() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [aiNarrative, setAiNarrative] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState(null)
+  const [copied, setCopied] = useState(false)
   const apiKey = sessionStorage.getItem('dashboard_key') || ''
 
   useEffect(() => {
@@ -47,6 +51,34 @@ export default function SituationReport() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [apiKey])
+
+  const generateNarrative = useCallback(async (lang = 'en') => {
+    setAiLoading(true)
+    setAiError(null)
+    try {
+      const res = await fetch('/api/v1/analytics/ai-narrative', {
+        method: 'POST',
+        headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: lang })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to generate narrative')
+      setAiNarrative(json.narrative)
+    } catch (e) {
+      setAiError(e.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }, [apiKey])
+
+  const copyNarrative = useCallback(async () => {
+    if (!aiNarrative) return
+    try {
+      await navigator.clipboard.writeText(aiNarrative)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* ignore */ }
+  }, [aiNarrative])
 
   if (!apiKey) return <ApiKeyGate><SituationReport /></ApiKeyGate>
 
@@ -62,12 +94,25 @@ export default function SituationReport() {
           </button>
           <h1 className="font-bold">Situation Report</h1>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 bg-white text-undp-blue px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-50 transition-colors"
-        >
-          🖨️ Print / Save PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => generateNarrative('en')}
+            disabled={aiLoading}
+            className="flex items-center gap-2 bg-undp-teal text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-teal-600 transition-colors disabled:opacity-60"
+          >
+            {aiLoading ? (
+              <><span className="animate-spin">⏳</span> Generating…</>
+            ) : (
+              <><span>✨</span> AI Narrative</>
+            )}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 bg-white text-undp-blue px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-50 transition-colors"
+          >
+            🖨️ Print / Save PDF
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -105,11 +150,15 @@ export default function SituationReport() {
           </div>
 
           {/* Key metrics row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             {[
               { label: 'Reports (24h)', value: data.analytics.reports_last_24h, icon: '📅', color: 'text-undp-teal' },
               { label: 'Reports (1h)',  value: data.analytics.reports_last_1h,  icon: '⏱', color: 'text-undp-amber' },
               { label: 'Buildings Affected', value: data.analytics.unique_buildings_affected, icon: '🏢', color: 'text-undp-blue' },
+              { label: 'Est. People Affected',
+                value: data.analytics.estimated_affected > 0 ? `~${data.analytics.estimated_affected.toLocaleString()}` : '—',
+                icon: '👥', color: 'text-undp-red'
+              },
               { label: 'Trend (3h)',
                 value: data.trends
                   ? (data.trends.change_pct > 0 ? `↑${data.trends.change_pct}%` : data.trends.change_pct < 0 ? `↓${Math.abs(data.trends.change_pct)}%` : '→ Stable')
@@ -226,6 +275,95 @@ export default function SituationReport() {
               ))}
             </div>
           </div>
+
+          {/* AI Narrative section */}
+          {(aiNarrative || aiLoading || aiError) && (
+            <div className="bg-white rounded-xl border-2 border-undp-teal/30 p-5 mb-6 print:border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg" aria-hidden="true">✨</span>
+                  <h2 className="text-sm font-bold text-gray-700">AI-Generated Narrative</h2>
+                  <span className="text-xs bg-undp-teal/10 text-undp-teal px-2 py-0.5 rounded-full font-semibold">Llama 3.3 · Groq</span>
+                </div>
+                {aiNarrative && (
+                  <div className="flex items-center gap-2 print:hidden">
+                    {/* Language selector */}
+                    <select
+                      onChange={e => generateNarrative(e.target.value)}
+                      defaultValue="en"
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-undp-teal"
+                      disabled={aiLoading}
+                    >
+                      <option value="en">English</option>
+                      <option value="fr">Français</option>
+                      <option value="es">Español</option>
+                      <option value="ar">العربية</option>
+                      <option value="zh">中文</option>
+                      <option value="ru">Русский</option>
+                    </select>
+                    <button
+                      onClick={copyNarrative}
+                      className="flex items-center gap-1 text-xs px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      {copied ? '✅ Copied' : '📋 Copy'}
+                    </button>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent('RAPIDA Crisis SITREP\n\n' + aiNarrative)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                      title="Share via WhatsApp"
+                    >
+                      📱 WhatsApp
+                    </a>
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent('RAPIDA Crisis SITREP — ' + new Date().toLocaleDateString())}&body=${encodeURIComponent(aiNarrative)}`}
+                      className="flex items-center gap-1 text-xs px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                      title="Share via Email"
+                    >
+                      📧 Email
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {aiLoading && (
+                <div className="flex items-center gap-3 py-6 justify-center text-gray-400">
+                  <div className="animate-spin w-5 h-5 border-2 border-undp-teal border-t-transparent rounded-full" />
+                  <span className="text-sm">Analysing field data and generating narrative…</span>
+                </div>
+              )}
+
+              {aiError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                  {aiError}
+                </div>
+              )}
+
+              {aiNarrative && !aiLoading && (
+                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+                  {aiNarrative}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Generate prompt if not yet generated */}
+          {!aiNarrative && !aiLoading && !aiError && (
+            <div className="print:hidden bg-gradient-to-r from-undp-teal/5 to-undp-blue/5 border border-undp-teal/20 rounded-xl p-4 mb-6 flex items-center gap-4">
+              <span className="text-3xl flex-shrink-0" aria-hidden="true">✨</span>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-800 text-sm">Generate AI Narrative</p>
+                <p className="text-xs text-gray-500 mt-0.5">Turn this data into a ready-to-share UN-style SITREP in any of the 6 official UN languages.</p>
+              </div>
+              <button
+                onClick={() => generateNarrative('en')}
+                className="flex-shrink-0 bg-undp-teal text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-teal-600 transition-colors"
+              >
+                Generate →
+              </button>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="text-center text-xs text-gray-400 py-4 border-t border-gray-100">

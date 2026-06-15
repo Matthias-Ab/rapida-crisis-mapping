@@ -19,7 +19,7 @@ const CRISIS_GROUPS = [
       { value: 'earthquake', emoji: '🌍', key: 'crisis_earthquake' },
       { value: 'flood', emoji: '🌊', key: 'crisis_flood' },
       { value: 'tsunami', emoji: '🌊', key: 'crisis_tsunami' },
-      { value: 'hurricane', emoji: '🌀', key: 'crisis_hurricane' },
+      { value: 'hurricane_cyclone', emoji: '🌀', key: 'crisis_hurricane' },
       { value: 'wildfire', emoji: '🔥', key: 'crisis_wildfire' }
     ]
   },
@@ -27,7 +27,7 @@ const CRISIS_GROUPS = [
     key: 'crisis_industrial',
     items: [
       { value: 'explosion', emoji: '💥', key: 'crisis_explosion' },
-      { value: 'chemical', emoji: '☣️', key: 'crisis_chemical' }
+      { value: 'chemical_incident', emoji: '☣️', key: 'crisis_chemical' }
     ]
   },
   {

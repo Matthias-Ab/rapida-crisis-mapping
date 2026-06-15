@@ -203,6 +203,8 @@ export default function StatsBar() {
     }
   }
 
+  const estimatedAffected = stats.estimated_affected ?? 0
+
   const statCards = [
     {
       label: t('total_reports'),
@@ -226,6 +228,13 @@ export default function StatsBar() {
       borderClass: 'border-amber-100',
     },
     {
+      label: 'Est. People Affected',
+      value: estimatedAffected > 0 ? `~${estimatedAffected.toLocaleString()}` : '—',
+      icon: '👥',
+      colorClass: 'text-[#D12800]',
+      borderClass: 'border-red-100',
+    },
+    {
       label: t('most_common_damage'),
       value: DAMAGE_LABELS[mostCommon] ?? mostCommon ?? '—',
       icon: mostCommon === 'complete' ? '🔴' : mostCommon === 'partial' ? '⚠️' : '✅',
@@ -237,7 +246,7 @@ export default function StatsBar() {
   return (
     <div className="px-4 pt-3 pb-2 space-y-3 flex-shrink-0">
       {/* Top row: stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {statCards.map((card) => (
           <StatCard key={card.label} {...card} />
         ))}

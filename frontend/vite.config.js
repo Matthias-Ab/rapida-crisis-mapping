@@ -34,11 +34,19 @@ export default defineConfig({
             }
           },
           {
+            // SSE stream cannot be cached or cloned — pass through without SW interception.
+            urlPattern: /\/api\/v1\/reports\/stream.*/i,
+            handler: 'NetworkOnly'
+          },
+          {
             urlPattern: /\/api\/v1\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
-              networkTimeoutSeconds: 10
+              networkTimeoutSeconds: 10,
+              plugins: [
+                { fetchDidFail: async () => {} }
+              ]
             }
           }
         ]

@@ -37,16 +37,21 @@ async function getAnalytics() {
     prisma.report.count({ where: { isVerified: true } })
   ])
 
+  const byDamageMap = Object.fromEntries(byDamage.map(r => [r.damageLevel, r._count]))
+
   return {
     total_reports: total,
-    by_damage_level: Object.fromEntries(byDamage.map(r => [r.damageLevel, r._count])),
+    by_damage_level: byDamageMap,
     by_infra_type: Object.fromEntries(byInfra.map(r => [r.infraType, r._count])),
     by_crisis_type: Object.fromEntries(byCrisis.map(r => [r.crisisType, r._count])),
     reports_last_24h: last24h,
     reports_last_1h: last1h,
     unique_buildings_affected: buildings.length,
     flagged_reports: flagged,
-    verified_reports: verified
+    verified_reports: verified,
+    // Urban crisis estimate: each complete-damage report ~100 people affected (building + neighbours);
+    // partial-damage reports ~30 people. Weighted for urban contexts (Antakya, Derna, etc.)
+    estimated_affected: Math.round((byDamageMap.complete || 0) * 100 + (byDamageMap.partial || 0) * 30)
   }
 }
 
@@ -156,6 +161,7 @@ async function getPriorityReports(limit = 15) {
     SELECT
       id, damage_level, infra_type, crisis_type,
       location_text, description, thumbnail_url,
+      pressing_needs, electricity_status, health_services_status,
       created_at, is_verified, latitude, longitude,
       EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0 AS age_hours
     FROM reports

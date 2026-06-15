@@ -50,6 +50,7 @@ services:
       NODE_ENV: development
       DASHBOARD_API_KEY: ${DASHBOARD_API_KEY:-change_this_to_a_secure_random_key}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:80}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     ports:
       - "3001:3001"
     depends_on:

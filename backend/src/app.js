@@ -106,6 +106,10 @@ async function startServer() {
     await initializeBucket()
     logger.info('MinIO bucket initialized')
 
+    // Auto-seed demo data if the database is empty (first deploy / fresh DB)
+    const { autoSeedIfEmpty } = require('../scripts/seed')
+    await autoSeedIfEmpty(prisma)
+
     const server = app.listen(PORT, () => {
       logger.info(`RAPIDA backend running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`)
     })

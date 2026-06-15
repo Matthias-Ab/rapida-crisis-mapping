@@ -15,6 +15,7 @@ import LocationStep from './LocationStep'
 import DamageStep from './DamageStep'
 import InfraStep from './InfraStep'
 import AdditionalStep from './AdditionalStep'
+import VoiceReportModal from './VoiceReportModal'
 
 const TOTAL_STEPS = 5
 
@@ -67,6 +68,7 @@ export default function ReportForm() {
   const [submitResult, setSubmitResult] = useState(null) // { success, reportId, offline }
   const [aiSuggestedDamage, setAiSuggestedDamage] = useState(null)
   const [shareCopied, setShareCopied] = useState(false)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
 
   // Transition state
   const [direction, setDirection] = useState('forward') // 'forward' | 'back'
@@ -201,6 +203,18 @@ export default function ReportForm() {
     setAiSuggestedDamage(damageLevel)
     updateForm('damageLevel', damageLevel)
   }, [updateForm])
+
+  const handleVoiceFill = useCallback((parsed) => {
+    setForm((prev) => ({
+      ...prev,
+      damageLevel: parsed.damageLevel || prev.damageLevel,
+      infraType: parsed.infraType || prev.infraType,
+      crisisType: parsed.crisisType || prev.crisisType,
+      pressingNeeds: parsed.pressingNeeds?.length ? parsed.pressingNeeds : prev.pressingNeeds,
+      description: parsed.description || prev.description
+    }))
+    setErrors({})
+  }, [])
 
   const handleReset = useCallback(() => {
     setForm(INITIAL_FORM)
@@ -406,8 +420,31 @@ export default function ReportForm() {
         </div>
       </div>
 
+      {/* Voice report modal */}
+      {showVoiceModal && (
+        <VoiceReportModal
+          onFill={handleVoiceFill}
+          onClose={() => setShowVoiceModal(false)}
+        />
+      )}
+
       {/* Step content with slide transition */}
       <div className={`px-4 py-3 ${transitionClass}`}>
+        {/* Voice entry point — only shown on step 1 before the user has pre-filled via voice */}
+        {step === 1 && (
+          <button
+            type="button"
+            onClick={() => setShowVoiceModal(true)}
+            className="w-full flex items-center justify-center gap-2 mb-4 py-3 rounded-2xl border-2 border-dashed border-undp-blue/40 text-undp-blue font-semibold text-sm hover:bg-undp-blue/5 active:scale-95 transition-all"
+          >
+            <span className="text-xl" aria-hidden="true">🎙️</span>
+            <span>{t('voice_report')}</span>
+            {(form.damageLevel || form.crisisType || form.infraType) && (
+              <span className="ml-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">✓ {t('voice_filled')}</span>
+            )}
+          </button>
+        )}
+
         {step === 1 && (
           <PhotoStep
             value={form.photo}

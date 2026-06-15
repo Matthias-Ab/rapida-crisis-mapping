@@ -177,6 +177,75 @@ function PriorityQueue({ apiKey, onReportClick }) {
   )
 }
 
+// ── AI Insights panel ────────────────────────────────────────────────────────
+function AiInsights({ apiKey }) {
+  const [insights, setInsights] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(null)
+
+  const generate = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/v1/analytics/ai-insights', {
+        headers: { 'X-API-Key': apiKey }
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setInsights(data.insights || [])
+      setLoaded(true)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [apiKey])
+
+  if (!apiKey) return null
+
+  return (
+    <div className="bg-white rounded-xl border border-undp-teal/20 mt-3 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-50">
+        <div className="flex items-center gap-2">
+          <span className="text-sm" aria-hidden="true">✨</span>
+          <p className="text-xs font-bold text-gray-700">AI Insights</p>
+          <span className="text-[10px] bg-undp-teal/10 text-undp-teal px-1.5 py-0.5 rounded-full font-semibold">Llama 3.3</span>
+        </div>
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="text-xs text-undp-teal font-bold hover:underline disabled:opacity-50 transition-opacity"
+        >
+          {loading ? '⏳' : loaded ? '↻' : 'Generate →'}
+        </button>
+      </div>
+
+      <div className="px-3 py-2.5">
+        {loading && (
+          <p className="text-xs text-gray-400 animate-pulse">Analysing live crisis data…</p>
+        )}
+        {error && !loading && (
+          <p className="text-xs text-red-500">{error}</p>
+        )}
+        {!loaded && !loading && !error && (
+          <p className="text-xs text-gray-400">Click to generate AI observations from live data.</p>
+        )}
+        {insights.length > 0 && !loading && (
+          <div className="space-y-2">
+            {insights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-undp-teal font-black text-[10px] flex-shrink-0 mt-0.5 w-3">{i + 1}.</span>
+                <p className="text-xs text-gray-600 leading-snug">{insight}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Empty state overlay ───────────────────────────────────────────────────────
 function EmptyState({ onRefresh }) {
   return (
@@ -260,17 +329,26 @@ export default function Dashboard() {
     fetchReports(false)
   }, [fetchReports])
 
-  // SSE connection with polling fallback
+  // SSE connection with exponential backoff and polling fallback
   useEffect(() => {
     let eventSource = null
     let destroyed = false
+    let retryDelay = 5000
+    let retryCount = 0
+    const MAX_RETRIES = 8 // gives up after ~8.5 min of trying
+    let retryTimer = null
 
     function getDashKey() {
       return sessionStorage.getItem('dashboard_key') || import.meta.env.VITE_DASHBOARD_KEY || ''
     }
 
     function connect() {
-      if (destroyed) return
+      if (destroyed || retryCount >= MAX_RETRIES) return
+      if (!navigator.onLine) {
+        // wait for reconnect event instead of hammering
+        retryTimer = setTimeout(connect, retryDelay)
+        return
+      }
       const key = getDashKey()
       const url = key
         ? `/api/v1/reports/stream?key=${encodeURIComponent(key)}`
@@ -278,6 +356,8 @@ export default function Dashboard() {
       eventSource = new EventSource(url)
 
       eventSource.addEventListener('new_report', (e) => {
+        retryDelay = 5000 // reset backoff on successful message
+        retryCount = 0
         try {
           const report = JSON.parse(e.data)
           setReports(prev => {
@@ -303,7 +383,11 @@ export default function Dashboard() {
 
       eventSource.onerror = () => {
         if (eventSource) eventSource.close()
-        if (!destroyed) setTimeout(connect, 5000)
+        retryCount++
+        if (!destroyed && retryCount < MAX_RETRIES) {
+          retryDelay = Math.min(retryDelay * 2, 60000) // cap at 60s
+          retryTimer = setTimeout(connect, retryDelay)
+        }
       }
     }
 
@@ -344,6 +428,7 @@ export default function Dashboard() {
     return () => {
       destroyed = true
       if (eventSource) eventSource.close()
+      if (retryTimer) clearTimeout(retryTimer)
       clearInterval(poll)
     }
   }, [filters])
@@ -493,6 +578,7 @@ export default function Dashboard() {
           />
           <div className="px-3">
             <TopAreas onAreaClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />
+            <AiInsights apiKey={apiKey} />
             <PriorityQueue
               apiKey={apiKey}
               onReportClick={(r) => setFlyTarget({ lat: r.latitude, lng: r.longitude, zoom: 17 })}
