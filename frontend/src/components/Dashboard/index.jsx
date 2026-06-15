@@ -734,9 +734,13 @@ export default function Dashboard() {
 
       {/* Main layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar — single scrollable column, fixed width so map never shrinks */}
         <div className={`
-          fixed inset-y-0 left-0 z-20 md:relative md:flex md:flex-shrink-0 transition-transform
+          flex-shrink-0 w-64 flex flex-col overflow-y-auto overflow-x-hidden
+          border-r border-gray-100 bg-white
+          fixed inset-y-0 left-0 z-20
+          md:relative md:translate-x-0
+          transition-transform duration-200
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
           <FilterSidebar
@@ -746,7 +750,7 @@ export default function Dashboard() {
             totalCount={totalReportCount}
             trendBadge={<TrendBadge />}
           />
-          <div className="px-3">
+          <div className="px-3 pb-4 flex-shrink-0">
             <TopAreas onAreaClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />
             <PhotoEvidence apiKey={apiKey} />
             <AiInsights apiKey={apiKey} />

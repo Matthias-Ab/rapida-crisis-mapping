@@ -54,7 +54,7 @@ export default function FilterSidebar({ filters, onFiltersChange, resultCount, t
   }
 
   return (
-    <aside className="bg-white border-r border-gray-100 w-full md:w-64 flex-shrink-0 overflow-y-auto">
+    <aside className="w-full flex-shrink-0">
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
