@@ -17,27 +17,40 @@ const BUCKET = process.env.MINIO_BUCKET || 'crisis-reports'
  * bucket policy scoped to the thumbnails/ prefix.
  */
 async function initializeBucket() {
-  const exists = await client.bucketExists(BUCKET)
-  if (!exists) {
-    await client.makeBucket(BUCKET, 'us-east-1')
+  try {
+    const exists = await client.bucketExists(BUCKET)
+    if (!exists) {
+      await client.makeBucket(BUCKET, 'us-east-1')
+    }
+  } catch (err) {
+    // On managed S3 providers (Cloudflare R2, Supabase) the bucket is
+    // pre-created in the console — a 403/409 here is non-fatal.
+    if (!err.message?.includes('BucketAlreadyOwnedByYou')) {
+      console.warn('initializeBucket: could not create bucket —', err.message)
+    }
   }
 
-  // Public read for both photos/ and thumbnails/ — EXIF is stripped before upload
-  const policy = JSON.stringify({
-    Version: '2012-10-17',
-    Statement: [
-      {
-        Effect: 'Allow',
-        Principal: { AWS: ['*'] },
-        Action: ['s3:GetObject'],
-        Resource: [
-          `arn:aws:s3:::${BUCKET}/photos/*`,
-          `arn:aws:s3:::${BUCKET}/thumbnails/*`
-        ]
-      }
-    ]
-  })
-  await client.setBucketPolicy(BUCKET, policy)
+  // Apply public-read policy. Cloudflare R2 manages access via the dashboard;
+  // setBucketPolicy is not supported there so we catch and continue.
+  try {
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [
+            `arn:aws:s3:::${BUCKET}/photos/*`,
+            `arn:aws:s3:::${BUCKET}/thumbnails/*`
+          ]
+        }
+      ]
+    })
+    await client.setBucketPolicy(BUCKET, policy)
+  } catch {
+    // Silently ignored on providers that don't support bucket policies
+  }
 }
 
 /**
