@@ -64,9 +64,68 @@ All examples below use `docker-compose` (v1 syntax). Substitute `docker compose`
 
 ---
 
-## 2. Docker Compose Deployment
+## 2. One-Click Setup Scripts (Recommended for First-Time Setup)
 
-### 2.1 Development / Demo
+For local development and demo environments, use the platform-specific setup scripts included in the repository root. They handle all prerequisites, install dependencies, create `.env`, start Docker services, and build the frontend automatically.
+
+### Linux / macOS
+
+```bash
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
+cd rapida-crisis-mapping
+chmod +x setup.sh && ./setup.sh
+```
+
+After setup, add your Groq API key to `.env` (required for AI features):
+
+```bash
+# Replace YOUR_GROQ_API_KEY with your key from https://console.groq.com
+sed -i 's/YOUR_GROQ_API_KEY/your_actual_key/' .env
+```
+
+Start in dev mode with hot reload:
+
+```bash
+./start-dev.sh
+```
+
+Or start the full Docker stack:
+
+```bash
+docker compose up -d
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/Matthias-Ab/rapida-crisis-mapping
+cd rapida-crisis-mapping
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+.\setup.ps1
+```
+
+After setup, edit `.env` to set your Groq API key, then:
+
+```powershell
+.\start-dev.ps1     # dev mode with hot reload
+# or
+docker compose up -d  # full Docker stack
+```
+
+### Access Points (local)
+
+| URL | Description |
+|---|---|
+| http://localhost:5173 | Report submission (public) |
+| http://localhost:5173/dashboard | Analyst dashboard (key: `rapida-dev-key-2026`) |
+| http://localhost:5173/situation-report | AI Situation Report + SITREP generator |
+| http://localhost:9001 | MinIO console (`minioadmin` / `minioadmin`) |
+
+---
+
+## 3. Docker Compose Deployment (Manual)
+
+### 3.1 Development / Demo
 
 The development stack (`docker-compose.yml`) is suitable for local testing, demos, and UNDP evaluator review. It exposes every service port directly for easy debugging.
 
@@ -156,7 +215,7 @@ curl -s http://localhost/api/v1/health | python3 -m json.tool
 
 ---
 
-## 3. Environment Variable Reference
+## 4. Environment Variable Reference
 
 All variables are read from the `.env` file in the project root by Docker Compose. The backend also reads `backend/.env` when running manually outside Docker.
 
@@ -190,6 +249,7 @@ All variables are read from the `.env` file in the project root by Docker Compos
 | `DASHBOARD_API_KEY` | Yes | Secret for `X-API-Key` header on protected routes. Generate: `openssl rand -hex 32` | _(strong random)_ |
 | `IP_HASH_SALT` | No | Salt appended to IP before SHA-256 hashing. Generate: `openssl rand -hex 16` | _(strong random)_ |
 | `CORS_ORIGINS` | Yes | Comma-separated allowed CORS origins | `https://your-domain.com` |
+| `GROQ_API_KEY` | No* | Groq API key for AI SITREP narrative generation, AI Insights panel, and report description translation (Llama 3.3 70B). Free key at [console.groq.com](https://console.groq.com). *Required for AI features — they degrade gracefully (HTTP 503) if unset. | `gsk_...` |
 
 ### Frontend (baked in at build time by Vite)
 
@@ -203,7 +263,7 @@ All variables are read from the `.env` file in the project root by Docker Compos
 
 ---
 
-## 4. SSL / TLS with Let's Encrypt
+## 5. SSL / TLS with Let's Encrypt
 
 This section describes the recommended approach for a single-server deployment using Certbot in standalone mode.
 
@@ -394,7 +454,7 @@ Alternatively, use the `--deploy-hook` approach without stopping Nginx:
 
 ---
 
-## 5. MinIO Bucket Configuration
+## 6. MinIO Bucket Configuration
 
 MinIO stores all uploaded photos and thumbnails. The backend automatically creates the bucket and sets the bucket policy on startup (see `backend/src/services/storage.js`).
 
@@ -462,7 +522,7 @@ async function getSignedUrl(key, expiry = 604800) {  // 604800 = 7 days in secon
 
 ---
 
-## 6. Database Backup Strategy
+## 7. Database Backup Strategy
 
 ### 6.1 Manual Backup
 
@@ -539,7 +599,7 @@ docker-compose -f docker-compose.prod.yml start backend
 
 ---
 
-## 7. Monitoring
+## 8. Monitoring
 
 ### 7.1 Health Endpoint
 
@@ -638,7 +698,7 @@ docker exec rapida_minio_1 du -sh /data
 
 ---
 
-## 8. Scaling Considerations
+## 9. Scaling Considerations
 
 ### 8.1 Vertical Scaling
 
@@ -683,7 +743,7 @@ Once photo volume grows, put a CDN (Cloudflare, CloudFront, Fastly) in front of 
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ### Database container won't start / exits immediately
 
