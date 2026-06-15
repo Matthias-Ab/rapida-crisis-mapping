@@ -111,6 +111,7 @@ function TopAreas({ onAreaClick }) {
 function PriorityQueue({ apiKey, onReportClick }) {
   const [reports, setReports] = useState([])
   const [open, setOpen] = useState(true)
+  const [dispatching, setDispatching] = useState(null)
 
   useEffect(() => {
     if (!apiKey) return
@@ -121,6 +122,19 @@ function PriorityQueue({ apiKey, onReportClick }) {
       .then(setReports)
       .catch(() => {})
   }, [apiKey])
+
+  async function handleDispatch(reportId) {
+    setDispatching(reportId)
+    try {
+      await fetch(`/api/v1/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({ is_verified: true, analyst_notes: 'Response dispatched' })
+      })
+      setReports(prev => prev.filter(r => r.id !== reportId))
+    } catch { /* silent */ }
+    finally { setDispatching(null) }
+  }
 
   if (!reports.length) return null
 
@@ -146,30 +160,138 @@ function PriorityQueue({ apiKey, onReportClick }) {
       {open && (
         <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
           {reports.map((r, i) => (
-            <button
-              key={r.id}
-              onClick={() => onReportClick(r)}
-              className="w-full flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-left transition-colors"
-            >
-              <span className="text-xs font-black text-gray-300 w-4 pt-0.5">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-xs">{DAMAGE_ICONS[r.damage_level]}</span>
-                  <span className={`text-xs font-bold capitalize ${DAMAGE_COLORS[r.damage_level]}`}>
-                    {r.damage_level}
-                  </span>
-                  <span className="text-[10px] text-gray-400">·</span>
-                  <span className="text-[10px] text-gray-500 capitalize truncate">
-                    {(r.infra_type || '').replace(/_/g, ' ')}
-                  </span>
+            <div key={r.id} className="flex items-start gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
+              <button onClick={() => onReportClick(r)} className="flex items-start gap-2 flex-1 min-w-0 text-left">
+                <span className="text-xs font-black text-gray-300 w-4 pt-0.5 flex-shrink-0">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-xs">{DAMAGE_ICONS[r.damage_level]}</span>
+                    <span className={`text-xs font-bold capitalize ${DAMAGE_COLORS[r.damage_level]}`}>
+                      {r.damage_level}
+                    </span>
+                    <span className="text-[10px] text-gray-400">·</span>
+                    <span className="text-[10px] text-gray-500 capitalize truncate">
+                      {(r.infra_type || '').replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 truncate">{r.location_text || r.crisis_type}</p>
                 </div>
-                <p className="text-[11px] text-gray-500 truncate">{r.location_text || r.crisis_type}</p>
-              </div>
-              <div className="flex-shrink-0 text-right">
+              </button>
+              <div className="flex-shrink-0 flex flex-col items-end gap-1">
                 <span className="text-[10px] font-bold text-undp-blue">{r.priority_score}</span>
-                <p className="text-[9px] text-gray-400">score</p>
+                <button
+                  onClick={() => handleDispatch(r.id)}
+                  disabled={dispatching === r.id}
+                  title="Mark response dispatched"
+                  className="text-[9px] px-1.5 py-0.5 bg-undp-teal/10 text-undp-teal rounded font-bold hover:bg-undp-teal/20 transition-colors disabled:opacity-50"
+                >
+                  {dispatching === r.id ? '…' : '✓ Dispatch'}
+                </button>
               </div>
-            </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Media URL helper (same as ReportDetail) ──────────────────────────────────
+function publicMediaUrl(url) {
+  if (!url) return null
+  const base = import.meta.env.VITE_MINIO_PUBLIC_URL || 'http://localhost:9000'
+  return url.replace(/https?:\/\/minio:\d+/, base)
+}
+
+// ── Alert Banner ──────────────────────────────────────────────────────────────
+function AlertBanner({ onAlertClick }) {
+  const [alerts, setAlerts] = useState([])
+
+  useEffect(() => {
+    const check = () => {
+      fetch('/api/v1/analytics/alerts')
+        .then(r => r.json())
+        .then(d => setAlerts(d.alerts || []))
+        .catch(() => {})
+    }
+    check()
+    const id = setInterval(check, 5 * 60 * 1000) // refresh every 5 min
+    return () => clearInterval(id)
+  }, [])
+
+  if (!alerts.length) return null
+
+  return (
+    <div className="flex-shrink-0 bg-undp-red/10 border-b-2 border-undp-red px-4 py-2 flex items-start gap-3">
+      <span className="flex-shrink-0 relative flex h-3 w-3 mt-0.5" aria-hidden="true">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-undp-red opacity-75" />
+        <span className="relative inline-flex rounded-full h-3 w-3 bg-undp-red" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-undp-red uppercase tracking-wide mb-0.5">
+          ⚠️ Mass Incident Alert{alerts.length > 1 ? `s (${alerts.length})` : ''}
+        </p>
+        {alerts.map((a, i) => (
+          <button
+            key={i}
+            onClick={() => onAlertClick({ lat: a.lat, lng: a.lng, zoom: 13 })}
+            className="block text-xs text-undp-red hover:underline font-medium truncate max-w-full text-left"
+          >
+            {a.count} critical reports near {a.location || `${a.lat?.toFixed(3)}, ${a.lng?.toFixed(3)}`}
+            {a.crisis_types?.length ? ` · ${a.crisis_types[0]}` : ''}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Photo Evidence panel ──────────────────────────────────────────────────────
+function PhotoEvidence({ apiKey }) {
+  const [photos, setPhotos] = useState([])
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!apiKey) return
+    fetch('/api/v1/analytics/priority?limit=15', { headers: { 'X-API-Key': apiKey } })
+      .then(r => r.json())
+      .then(data => setPhotos((data || []).filter(r => r.thumbnail_url)))
+      .catch(() => {})
+  }, [apiKey])
+
+  if (!photos.length) return null
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 mt-3 overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50">
+        <div className="flex items-center gap-2">
+          <span className="text-sm" aria-hidden="true">📸</span>
+          <p className="text-xs font-bold text-gray-700">Photo Evidence</p>
+          <span className="text-[10px] text-gray-400">({photos.length} reports)</span>
+        </div>
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="grid grid-cols-3 gap-px bg-gray-100">
+          {photos.map((r) => (
+            <a key={r.id} href={`/reports/${r.id}`} target="_blank" rel="noopener noreferrer"
+               className="relative group aspect-square overflow-hidden bg-gray-200">
+              <img
+                src={publicMediaUrl(r.thumbnail_url)}
+                alt=""
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                onError={e => { e.target.style.display='none' }}
+              />
+              <div className={`absolute top-1 left-1 w-2.5 h-2.5 rounded-full border border-white/60 ${
+                r.damage_level === 'complete' ? 'bg-undp-red' :
+                r.damage_level === 'partial'  ? 'bg-undp-amber' : 'bg-undp-green'
+              }`} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-1">
+                <span className="text-white text-[9px] truncate">{r.location_text || r.crisis_type}</span>
+              </div>
+            </a>
           ))}
         </div>
       )}
@@ -285,6 +407,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [showHeatmap, setShowHeatmap] = useState(false)
+  const [showNeedsHeatmap, setShowNeedsHeatmap] = useState(false)
+  const [needsHeatmapType, setNeedsHeatmapType] = useState('all')
   const [showBuildings, setShowBuildings] = useState(false)
   const [showBuildingAggregate, setShowBuildingAggregate] = useState(false)
   const apiKey = sessionStorage.getItem('dashboard_key') || import.meta.env.VITE_DASHBOARD_KEY || ''
@@ -516,6 +640,29 @@ export default function Dashboard() {
         >
           {t('map_buildings')}
         </button>
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            onClick={() => setShowNeedsHeatmap(v => !v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${showNeedsHeatmap ? 'bg-white text-undp-red' : 'bg-white/20 hover:bg-white/30'}`}
+          >
+            🆘 Needs
+          </button>
+          {showNeedsHeatmap && (
+            <select
+              value={needsHeatmapType}
+              onChange={e => setNeedsHeatmapType(e.target.value)}
+              className="bg-white/20 text-white text-xs rounded-lg px-2 py-1.5 font-bold border-0 focus:outline-none"
+            >
+              <option value="all">All needs</option>
+              <option value="rescue">🚁 Rescue</option>
+              <option value="medical">🩺 Medical</option>
+              <option value="water">💧 Water</option>
+              <option value="food">🍲 Food</option>
+              <option value="shelter">🏠 Shelter</option>
+              <option value="electricity">⚡ Electricity</option>
+            </select>
+          )}
+        </div>
         <button
           onClick={() => setShowBuildingAggregate((v) => !v)}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showBuildingAggregate ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
@@ -559,6 +706,9 @@ export default function Dashboard() {
         )}
       </header>
 
+      {/* Mass incident alerts */}
+      <AlertBanner onAlertClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />
+
       {/* Stats bar */}
       <StatsBar />
 
@@ -578,6 +728,7 @@ export default function Dashboard() {
           />
           <div className="px-3">
             <TopAreas onAreaClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />
+            <PhotoEvidence apiKey={apiKey} />
             <AiInsights apiKey={apiKey} />
             <PriorityQueue
               apiKey={apiKey}
@@ -607,6 +758,8 @@ export default function Dashboard() {
                 refreshing={refreshing}
                 lastRefresh={lastRefresh}
                 showHeatmap={showHeatmap}
+                showNeedsHeatmap={showNeedsHeatmap}
+                needsHeatmapType={needsHeatmapType}
                 showBuildings={showBuildings}
                 showBuildingAggregate={showBuildingAggregate}
                 apiKey={apiKey}

@@ -68,6 +68,66 @@ router.get('/situation-report', auth, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// POST /api/v1/analytics/translate
+// Translates arbitrary text (field report description) into a target UN language.
+router.post('/translate', async (req, res, next) => {
+  try {
+    const { text, to = 'en' } = req.body
+    if (!text?.trim()) return res.status(400).json({ error: 'text is required' })
+    const SUPPORTED = ['en', 'fr', 'es', 'ar', 'zh', 'ru']
+    if (!SUPPORTED.includes(to)) return res.status(400).json({ error: 'unsupported target language' })
+    const LANG_NAMES = { en: 'English', fr: 'French', es: 'Spanish', ar: 'Arabic', zh: 'Simplified Chinese', ru: 'Russian' }
+    const translated = await callGroq(
+      `Translate the following crisis field report text to ${LANG_NAMES[to]}. Return ONLY the translation, no preamble:\n\n${text.slice(0, 1000)}`,
+      400
+    )
+    res.json({ translated: translated.trim(), target_lang: to })
+  } catch (err) {
+    if (err.code === 'NO_GROQ_KEY') return res.status(503).json({ error: 'Translation not configured' })
+    next(err)
+  }
+})
+
+// GET /api/v1/analytics/alerts
+// Detects mass incidents: 3+ complete-damage reports within ~1km in last 24h.
+router.get('/alerts', async (req, res, next) => {
+  try {
+    const { prisma } = require('../db/connection')
+    const clusters = await prisma.$queryRaw`
+      SELECT
+        COUNT(*)::int                           AS count,
+        AVG(latitude)::float                    AS lat,
+        AVG(longitude)::float                   AS lng,
+        MIN(location_text)                      AS location,
+        ARRAY_AGG(DISTINCT crisis_type)         AS crisis_types,
+        ARRAY_AGG(DISTINCT infra_type)          AS infra_types,
+        MAX(created_at)                         AS latest_at
+      FROM reports
+      WHERE damage_level = 'complete'
+        AND created_at > NOW() - INTERVAL '24 hours'
+        AND latitude  IS NOT NULL
+        AND longitude IS NOT NULL
+      GROUP BY ROUND(latitude::numeric, 2), ROUND(longitude::numeric, 2)
+      HAVING COUNT(*) >= 3
+      ORDER BY COUNT(*) DESC
+      LIMIT 5
+    `
+    res.json({
+      alerts: clusters.map(c => ({
+        count: c.count,
+        lat: c.lat,
+        lng: c.lng,
+        location: c.location,
+        crisis_types: c.crisis_types.filter(Boolean),
+        infra_types: c.infra_types.filter(Boolean),
+        latest_at: c.latest_at,
+        severity: c.count >= 6 ? 'critical' : 'warning'
+      })),
+      checked_at: new Date().toISOString()
+    })
+  } catch (err) { next(err) }
+})
+
 // GET /api/v1/analytics/ai-insights
 // Returns 3 short data-driven intelligence observations for dashboard analysts.
 router.get('/ai-insights', auth, async (req, res, next) => {

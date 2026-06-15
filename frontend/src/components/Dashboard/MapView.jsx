@@ -105,6 +105,46 @@ function HeatmapLayer({ reports }) {
   return null
 }
 
+// Needs heatmap — shows where specific humanitarian needs are concentrated
+const NEEDS_GRADIENTS = {
+  rescue:        { 0.3: '#fdcb6e', 1.0: '#e17055' },
+  medical:       { 0.3: '#74b9ff', 1.0: '#0984e3' },
+  water:         { 0.3: '#81ecec', 1.0: '#00b894' },
+  food:          { 0.3: '#a29bfe', 1.0: '#6c5ce7' },
+  shelter:       { 0.3: '#fd79a8', 1.0: '#e84393' },
+  electricity:   { 0.3: '#ffeaa7', 1.0: '#fdcb6e' },
+  all:           { 0.3: '#fd79a8', 1.0: '#d63031' }
+}
+
+function NeedsHeatmapLayer({ reports, needType = 'all' }) {
+  const map = useMap()
+  const heatRef = useRef(null)
+
+  useEffect(() => {
+    if (!L.heatLayer) return
+    const points = reports
+      .filter(r => {
+        if (!r.geometry?.coordinates) return false
+        const needs = r.properties?.pressing_needs || []
+        return needType === 'all' ? needs.length > 0 : needs.includes(needType)
+      })
+      .map(r => {
+        const [lng, lat] = r.geometry.coordinates
+        return [lat, lng, 1.0]
+      })
+    if (heatRef.current) map.removeLayer(heatRef.current)
+    if (points.length > 0) {
+      heatRef.current = L.heatLayer(points, {
+        radius: 30, blur: 20, maxZoom: 17,
+        gradient: NEEDS_GRADIENTS[needType] || NEEDS_GRADIENTS.all
+      }).addTo(map)
+    }
+    return () => { if (heatRef.current) map.removeLayer(heatRef.current) }
+  }, [map, reports, needType])
+
+  return null
+}
+
 function ClusteredMarkers({ reports, onMarkerClick }) {
   const map = useMap()
   const clusterGroupRef = useRef(null)
@@ -460,7 +500,7 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showBuildings, showBuildingAggregate, apiKey, flyTarget }) {
+export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showNeedsHeatmap, needsHeatmapType, showBuildings, showBuildingAggregate, apiKey, flyTarget }) {
   const { t } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
   const [selectedReport, setSelectedReport] = useState(null)
@@ -515,6 +555,10 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
             reports={reports}
             onMarkerClick={handleMarkerClick}
           />
+        )}
+
+        {showNeedsHeatmap && (
+          <NeedsHeatmapLayer reports={reports} needType={needsHeatmapType || 'all'} />
         )}
 
         {showBuildings && <BuildingLayer />}

@@ -156,10 +156,12 @@ function PhotoGallery({ photoUrl, additionalPhotos = [] }) {
   )
 }
 
+const NEEDS_EMOJI = { water: '💧', food: '🍲', shelter: '🏠', medical: '🩺', rescue: '🚁', electricity: '⚡', communication: '📡', sanitation: '🚿' }
+
 export default function ReportDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
 
   const [report, setReport] = useState(null)
@@ -167,6 +169,9 @@ export default function ReportDetail() {
   const [error, setError] = useState(null)
   const [flagged, setFlagged] = useState(false)
   const [flagging, setFlagging] = useState(false)
+  const [translating, setTranslating] = useState(false)
+  const [translation, setTranslation] = useState(null)
+  const [translateError, setTranslateError] = useState(null)
 
   useEffect(() => {
     setLoading(true)
@@ -178,6 +183,26 @@ export default function ReportDetail() {
       .catch(() => setError('Report not found'))
       .finally(() => setLoading(false))
   }, [id])
+
+  async function handleTranslate() {
+    if (!report?.description || translating) return
+    setTranslating(true)
+    setTranslateError(null)
+    try {
+      const res = await fetch('/api/v1/analytics/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: report.description, to: i18n.language || 'en' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Translation failed')
+      setTranslation(data.translated)
+    } catch (e) {
+      setTranslateError(e.message)
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   async function handleFlag() {
     if (flagged || flagging) return
@@ -290,19 +315,44 @@ export default function ReportDetail() {
               <p className="text-xs uppercase tracking-wide font-bold text-red-700 mb-2">Pressing Needs</p>
               <div className="flex flex-wrap gap-2">
                 {report.pressing_needs.map((need) => (
-                  <span key={need} className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                    {need}
+                  <span key={need} className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+                    {NEEDS_EMOJI[need] || '•'} {need}
                   </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Description */}
+          {/* Description + translation */}
           {report.description && (
             <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <p className="text-xs uppercase tracking-wide font-bold text-gray-500 mb-2">Description</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wide font-bold text-gray-500">Description</p>
+                {!translation && (
+                  <button
+                    onClick={handleTranslate}
+                    disabled={translating}
+                    className="flex items-center gap-1 text-xs text-undp-blue hover:underline disabled:opacity-50 font-medium"
+                  >
+                    {translating ? '⏳ Translating…' : '🌐 Translate'}
+                  </button>
+                )}
+                {translation && (
+                  <button onClick={() => setTranslation(null)} className="text-xs text-gray-400 hover:text-gray-600">
+                    Show original
+                  </button>
+                )}
+              </div>
               <p className="text-gray-800 leading-relaxed">{report.description}</p>
+              {translation && (
+                <div className="mt-3 pt-3 border-t border-blue-100 bg-blue-50 -mx-4 -mb-4 px-4 pb-4 rounded-b-xl">
+                  <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wide mb-1">🌐 Translation</p>
+                  <p className="text-blue-900 leading-relaxed text-sm">{translation}</p>
+                </div>
+              )}
+              {translateError && (
+                <p className="mt-2 text-xs text-red-500">{translateError}</p>
+              )}
             </div>
           )}
 
