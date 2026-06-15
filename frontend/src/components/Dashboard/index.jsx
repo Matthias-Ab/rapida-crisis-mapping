@@ -274,7 +274,7 @@ function PhotoEvidence({ apiKey }) {
         </svg>
       </button>
       {open && (
-        <div className="grid grid-cols-3 gap-px bg-gray-100">
+        <div className="grid grid-cols-3 gap-px bg-gray-100 max-h-56 overflow-y-auto">
           {photos.map((r) => (
             <a key={r.id} href={`/reports/${r.id}`} target="_blank" rel="noopener noreferrer"
                className="relative group aspect-square overflow-hidden bg-gray-200">
@@ -640,29 +640,12 @@ export default function Dashboard() {
         >
           {t('map_buildings')}
         </button>
-        <div className="hidden sm:flex items-center gap-1">
-          <button
-            onClick={() => setShowNeedsHeatmap(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${showNeedsHeatmap ? 'bg-white text-undp-red' : 'bg-white/20 hover:bg-white/30'}`}
-          >
-            🆘 Needs
-          </button>
-          {showNeedsHeatmap && (
-            <select
-              value={needsHeatmapType}
-              onChange={e => setNeedsHeatmapType(e.target.value)}
-              className="bg-white/20 text-white text-xs rounded-lg px-2 py-1.5 font-bold border-0 focus:outline-none"
-            >
-              <option value="all">All needs</option>
-              <option value="rescue">🚁 Rescue</option>
-              <option value="medical">🩺 Medical</option>
-              <option value="water">💧 Water</option>
-              <option value="food">🍲 Food</option>
-              <option value="shelter">🏠 Shelter</option>
-              <option value="electricity">⚡ Electricity</option>
-            </select>
-          )}
-        </div>
+        <button
+          onClick={() => setShowNeedsHeatmap(v => !v)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showNeedsHeatmap ? 'bg-white text-undp-red' : 'bg-white/20 hover:bg-white/30'}`}
+        >
+          🆘 Needs
+        </button>
         <button
           onClick={() => setShowBuildingAggregate((v) => !v)}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showBuildingAggregate ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
@@ -705,6 +688,43 @@ export default function Dashboard() {
           <span className="text-xs opacity-70 animate-pulse">{t('map_refresh')}</span>
         )}
       </header>
+
+      {/* Needs heatmap filter strip — only shown when Needs heatmap is active */}
+      {showNeedsHeatmap && (
+        <div className="bg-undp-blue/90 border-b border-white/10 px-4 py-1.5 flex items-center gap-1.5 flex-wrap flex-shrink-0">
+          <span className="text-white/60 text-[10px] font-bold uppercase tracking-wide mr-1">Filter by need:</span>
+          {[
+            { value: 'all',         label: 'All',         emoji: '🆘' },
+            { value: 'rescue',      label: 'Rescue',      emoji: '🚁' },
+            { value: 'medical',     label: 'Medical',     emoji: '🩺' },
+            { value: 'water',       label: 'Water',       emoji: '💧' },
+            { value: 'food',        label: 'Food',        emoji: '🍲' },
+            { value: 'shelter',     label: 'Shelter',     emoji: '🏠' },
+            { value: 'electricity', label: 'Electricity', emoji: '⚡' },
+          ].map(({ value, label, emoji }) => {
+            const count = (Array.isArray(reports) ? reports : (reports?.features || []))
+              .filter(r => {
+                const needs = r.properties?.pressing_needs
+                const arr = Array.isArray(needs) ? needs : []
+                return value === 'all' ? arr.length > 0 : arr.includes(value)
+              }).length
+            return (
+              <button
+                key={value}
+                onClick={() => setNeedsHeatmapType(value)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                  needsHeatmapType === value
+                    ? 'bg-white text-undp-red shadow'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                {emoji} {label}
+                {count > 0 && <span className={`text-[10px] font-black ${needsHeatmapType === value ? 'text-undp-red/70' : 'text-white/60'}`}>{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Mass incident alerts */}
       <AlertBanner onAlertClick={({ lat, lng, zoom }) => setFlyTarget({ lat, lng, zoom })} />

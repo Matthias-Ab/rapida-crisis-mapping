@@ -118,28 +118,33 @@ const NEEDS_GRADIENTS = {
 
 function NeedsHeatmapLayer({ reports, needType = 'all' }) {
   const map = useMap()
-  const heatRef = useRef(null)
 
   useEffect(() => {
-    if (!L.heatLayer) return
+    if (!L.heatLayer || !map) return
+
     const points = reports
       .filter(r => {
         if (!r.geometry?.coordinates) return false
-        const needs = r.properties?.pressing_needs || []
-        return needType === 'all' ? needs.length > 0 : needs.includes(needType)
+        const needs = r.properties?.pressing_needs
+        const arr = Array.isArray(needs) ? needs : []
+        return needType === 'all' ? arr.length > 0 : arr.includes(needType)
       })
       .map(r => {
         const [lng, lat] = r.geometry.coordinates
         return [lat, lng, 1.0]
       })
-    if (heatRef.current) map.removeLayer(heatRef.current)
+
+    let layer = null
     if (points.length > 0) {
-      heatRef.current = L.heatLayer(points, {
+      layer = L.heatLayer(points, {
         radius: 30, blur: 20, maxZoom: 17,
         gradient: NEEDS_GRADIENTS[needType] || NEEDS_GRADIENTS.all
       }).addTo(map)
     }
-    return () => { if (heatRef.current) map.removeLayer(heatRef.current) }
+
+    return () => {
+      if (layer) { try { map.removeLayer(layer) } catch {} }
+    }
   }, [map, reports, needType])
 
   return null
@@ -548,17 +553,31 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
 
         {reports.length > 0 && <MapBoundsUpdater reports={reports} />}
 
-        {showHeatmap ? (
-          <HeatmapLayer reports={reports} />
-        ) : (
-          <ClusteredMarkers
-            reports={reports}
-            onMarkerClick={handleMarkerClick}
-          />
-        )}
+        {(() => {
+          // When a specific need is selected, filter markers to match
+          const visibleReports = (showNeedsHeatmap && needsHeatmapType && needsHeatmapType !== 'all')
+            ? reports.filter(r => {
+                const needs = r.properties?.pressing_needs
+                return Array.isArray(needs) && needs.includes(needsHeatmapType)
+              })
+            : reports
+
+          return showHeatmap ? (
+            <HeatmapLayer reports={visibleReports} />
+          ) : (
+            <ClusteredMarkers
+              reports={visibleReports}
+              onMarkerClick={handleMarkerClick}
+            />
+          )
+        })()}
 
         {showNeedsHeatmap && (
-          <NeedsHeatmapLayer reports={reports} needType={needsHeatmapType || 'all'} />
+          <NeedsHeatmapLayer
+            key={needsHeatmapType}
+            reports={reports}
+            needType={needsHeatmapType || 'all'}
+          />
         )}
 
         {showBuildings && <BuildingLayer />}
