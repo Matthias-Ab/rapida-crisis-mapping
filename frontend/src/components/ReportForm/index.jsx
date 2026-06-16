@@ -109,6 +109,7 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
       if (s === 4) {
         if (!form.infraType) errs.infraType = t('error_infra_required')
         if (!form.crisisType) errs.crisisType = t('error_crisis_required')
+        if (!form.debris) errs.debris = t('error_required')
       }
     }
     return errs
@@ -494,7 +495,7 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
           <InfraStep
             value={{ infraType: form.infraType, infraName: form.infraName, crisisType: form.crisisType, debris: form.debris }}
             onChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
-            errors={{ infraType: errors.infraType, crisisType: errors.crisisType }}
+            errors={{ infraType: errors.infraType, crisisType: errors.crisisType, debris: errors.debris }}
           />
         )}
         {step === 5 && (

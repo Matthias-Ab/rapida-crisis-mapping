@@ -169,6 +169,9 @@ export default function ReportDetail() {
   const [error, setError] = useState(null)
   const [flagged, setFlagged] = useState(false)
   const [flagging, setFlagging] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
+  const [confirmCount, setConfirmCount] = useState(0)
+  const [confirming, setConfirming] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [translation, setTranslation] = useState(null)
   const [translateError, setTranslateError] = useState(null)
@@ -179,10 +182,25 @@ export default function ReportDetail() {
       .then((res) => {
         setReport(res.data)
         setFlagged(res.data.is_flagged)
+        setConfirmCount(res.data.confirmation_count || 0)
       })
       .catch(() => setError('Report not found'))
       .finally(() => setLoading(false))
   }, [id])
+
+  async function handleConfirm() {
+    if (confirmed || confirming) return
+    setConfirming(true)
+    try {
+      const res = await fetch(`/api/v1/reports/${id}/confirm`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setConfirmed(true)
+        setConfirmCount(data.confirmation_count)
+      }
+    } catch { /* silent */ }
+    finally { setConfirming(false) }
+  }
 
   async function handleTranslate() {
     if (!report?.description || translating) return
@@ -385,6 +403,27 @@ export default function ReportDetail() {
               </MapContainer>
             </div>
           </div>
+
+          {/* Confirm button — crowdsourced verification */}
+          <button
+            onClick={handleConfirm}
+            disabled={confirmed || confirming}
+            className={`w-full py-4 rounded-xl font-semibold text-base transition-colors border-2 flex items-center justify-center gap-2
+              ${confirmed
+                ? 'bg-undp-teal/10 border-undp-teal text-undp-teal cursor-default'
+                : 'bg-white border-undp-teal text-undp-teal hover:bg-undp-teal/5'
+              }`}
+          >
+            <span aria-hidden="true">{confirmed ? '✅' : '👍'}</span>
+            <span>
+              {confirming ? 'Confirming…' : confirmed ? 'You confirmed this' : 'I\'ve seen this damage'}
+            </span>
+            {confirmCount > 0 && (
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${confirmed ? 'bg-undp-teal text-white' : 'bg-undp-teal/20 text-undp-teal'}`}>
+                {confirmCount}
+              </span>
+            )}
+          </button>
 
           {/* Flag button */}
           <button

@@ -530,6 +530,14 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
             </p>
           )}
 
+          {/* Confirmation count badge */}
+          {props.confirmation_count > 0 && (
+            <div className="flex items-center gap-1 text-xs text-undp-teal font-semibold mb-2">
+              <span>👍</span>
+              <span>{props.confirmation_count} {props.confirmation_count === 1 ? 'person' : 'people'} confirmed this</span>
+            </div>
+          )}
+
           {/* Footer */}
           <div className="flex gap-2">
             {props.id && (

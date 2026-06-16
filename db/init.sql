@@ -69,9 +69,10 @@ CREATE TABLE reports (
     language        TEXT DEFAULT 'en',
 
     -- Moderation
-    is_flagged      BOOLEAN DEFAULT FALSE,
-    is_verified     BOOLEAN DEFAULT FALSE,
-    duplicate_of    UUID REFERENCES reports(id)
+    is_flagged          BOOLEAN DEFAULT FALSE,
+    is_verified         BOOLEAN DEFAULT FALSE,
+    duplicate_of        UUID REFERENCES reports(id),
+    confirmation_count  INTEGER DEFAULT 0  -- crowd-sourced confirmations from other reporters
 );
 
 -- ============================================================

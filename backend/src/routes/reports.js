@@ -146,6 +146,42 @@ router.get(
 )
 
 // -------------------------------------------------------------------
+// POST /api/v1/reports/:id/confirm  — public, rate-limited (5/IP/hour)
+// Crowdsourced confirmation: "I've also seen this damage"
+// Increments confirmation_count. Same IP cannot confirm same report twice
+// within the rate-limit window.
+// -------------------------------------------------------------------
+const confirmLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => `${req.ip}:${req.params.id}`,
+  message: { error: 'Already confirmed this report recently', code: 'ALREADY_CONFIRMED' }
+})
+
+router.post(
+  '/:id/confirm',
+  confirmLimiter,
+  [param('id').isUUID().withMessage('id must be a valid UUID')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req)
+      if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed' })
+
+      const { prisma } = require('../db/connection')
+      const report = await prisma.report.update({
+        where: { id: req.params.id },
+        data: { confirmationCount: { increment: 1 } },
+        select: { id: true, confirmationCount: true }
+      })
+      res.json({ id: report.id, confirmation_count: report.confirmationCount })
+    } catch (err) {
+      if (err.code === 'P2025') return res.status(404).json({ error: 'Report not found' })
+      next(err)
+    }
+  }
+)
+
+// -------------------------------------------------------------------
 // POST /api/v1/reports/:id/flag  — public, rate-limited
 // -------------------------------------------------------------------
 router.post(

@@ -662,12 +662,14 @@ export default function Dashboard() {
           </button>
           <div className="w-px h-4 bg-white/20 flex-shrink-0" />
           <button onClick={handleExportCSV} disabled={!!exporting}
+            title={`Download CSV · ~${Math.round(reports.length * 0.3)}KB estimated`}
             className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap disabled:opacity-50">
-            {exporting === 'csv' ? <LoadingSpinner size="sm" color="white" /> : '📥'} {t('export_csv')}
+            {exporting === 'csv' ? <LoadingSpinner size="sm" color="white" /> : '📥'} {t('export_csv')} <span className="opacity-60 text-[10px]">~{Math.round(reports.length * 0.3)}KB</span>
           </button>
           <button onClick={handleExportGeoJSON} disabled={!!exporting}
+            title={`Download GeoJSON · ~${Math.round(reports.length * 0.8)}KB estimated`}
             className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap disabled:opacity-50">
-            {exporting === 'geojson' ? <LoadingSpinner size="sm" color="white" /> : '🗺️'} {t('export_geojson')}
+            {exporting === 'geojson' ? <LoadingSpinner size="sm" color="white" /> : '🗺️'} {t('export_geojson')} <span className="opacity-60 text-[10px]">~{Math.round(reports.length * 0.8)}KB</span>
           </button>
           <Link to="/situation-report"
             className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap">

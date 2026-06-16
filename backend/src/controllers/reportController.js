@@ -306,6 +306,7 @@ async function getReports(req, res, next) {
         language,
         is_flagged,
         is_verified,
+        confirmation_count,
         duplicate_of::text
       FROM reports
       ${whereClause}
@@ -349,6 +350,7 @@ async function getReports(req, res, next) {
         language: row.language,
         is_flagged: row.is_flagged,
         is_verified: row.is_verified,
+        confirmation_count: row.confirmation_count || 0,
         duplicate_of: row.duplicate_of
       }
     }))
@@ -443,6 +445,7 @@ async function getReport(req, res, next) {
       language: report.language,
       is_flagged: report.isFlagged,
       is_verified: report.isVerified,
+      confirmation_count: report.confirmationCount || 0,
       duplicate_of: report.duplicateOfId
     })
   } catch (err) {

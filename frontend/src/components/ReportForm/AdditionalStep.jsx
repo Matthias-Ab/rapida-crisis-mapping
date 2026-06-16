@@ -4,17 +4,19 @@ import { useTranslation } from 'react-i18next'
 const MAX_DESC = 500
 
 const ELECTRICITY_OPTIONS = [
-  { value: 'on', key: 'electricity_on', emoji: '💡' },
-  { value: 'off', key: 'electricity_off', emoji: '🔌' },
-  { value: 'partial', key: 'electricity_partial', emoji: '⚡' },
-  { value: 'unknown', key: 'electricity_unknown', emoji: '❓' }
+  { value: 'on',      key: 'electricity_on',      emoji: '💡' },
+  { value: 'partial', key: 'electricity_partial',  emoji: '⚡' },
+  { value: 'off',     key: 'electricity_off',      emoji: '🔌' },
+  { value: 'damaged', key: 'electricity_damaged',  emoji: '🔧' },
+  { value: 'unknown', key: 'electricity_unknown',  emoji: '❓' }
 ]
 
 const HEALTH_OPTIONS = [
   { value: 'operational', key: 'health_operational', emoji: '🏥' },
-  { value: 'limited', key: 'health_limited', emoji: '⚠️' },
-  { value: 'closed', key: 'health_closed', emoji: '🚫' },
-  { value: 'unknown', key: 'health_unknown', emoji: '❓' }
+  { value: 'limited',     key: 'health_limited',     emoji: '⚠️' },
+  { value: 'damaged',     key: 'health_damaged',     emoji: '🔧' },
+  { value: 'closed',      key: 'health_closed',      emoji: '🚫' },
+  { value: 'unknown',     key: 'health_unknown',     emoji: '❓' }
 ]
 
 const NEEDS = [

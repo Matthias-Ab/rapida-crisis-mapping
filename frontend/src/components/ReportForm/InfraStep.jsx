@@ -45,7 +45,7 @@ const DEBRIS_OPTIONS = [
   { value: 'unknown', key: 'debris_unknown', color: 'bg-gray-400 text-white border-gray-400' }
 ]
 
-export default function InfraStep({ value, onChange, errors }) {
+export default function InfraStep({ value, onChange, errors = {} }) {
   const { t } = useTranslation()
 
   const update = (field, val) => onChange({ ...value, [field]: val })
@@ -142,7 +142,7 @@ export default function InfraStep({ value, onChange, errors }) {
 
       {/* Debris */}
       <div>
-        <p className="label-text">{t('debris_question')}</p>
+        <p className="label-text">{t('debris_question')} <span className="text-undp-red">*</span></p>
         <div className="grid grid-cols-3 gap-2">
           {DEBRIS_OPTIONS.map((opt) => {
             const isSelected = value.debris === opt.value
@@ -160,6 +160,9 @@ export default function InfraStep({ value, onChange, errors }) {
             )
           })}
         </div>
+        {errors.debris && (
+          <p role="alert" className="text-undp-red text-sm mt-1">{errors.debris}</p>
+        )}
       </div>
     </div>
   )
