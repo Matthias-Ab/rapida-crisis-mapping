@@ -628,74 +628,53 @@ export default function Dashboard() {
 
         <h1 className="font-bold text-lg flex-1">{t('dashboard_title')}</h1>
 
-        {/* Map controls */}
-        <button
-          onClick={() => setShowConsolidated(v => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex items-center gap-1 ${showConsolidated ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
-          title="Group nearby reports into single incident markers"
-        >
-          🔵 Consolidated
-        </button>
-        <button
-          onClick={() => setShowHeatmap((v) => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${showHeatmap ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
-        >
-          {t('map_heatmap')}
-        </button>
-        <button
-          onClick={() => setShowBuildings((v) => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showBuildings ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
-        >
-          {t('map_buildings')}
-        </button>
-        <button
-          onClick={() => setShowNeedsHeatmap(v => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showNeedsHeatmap ? 'bg-white text-undp-red' : 'bg-white/20 hover:bg-white/30'}`}
-        >
-          🆘 Needs
-        </button>
-        <button
-          onClick={() => setShowBuildingAggregate((v) => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${showBuildingAggregate ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
-        >
-          Building Summary
-        </button>
-        <button
-          onClick={() => setTimelineActive(v => !v)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex ${timelineActive ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
-        >
-          ⏱ Timeline
-        </button>
-
-        {/* Export */}
-        <button
-          onClick={handleExportCSV}
-          disabled={!!exporting}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 hover:bg-white/30 transition-colors hidden sm:inline-flex items-center gap-1"
-        >
-          {exporting === 'csv' ? <LoadingSpinner size="sm" color="white" /> : '📥'}
-          {t('export_csv')}
-        </button>
-        <button
-          onClick={handleExportGeoJSON}
-          disabled={!!exporting}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 hover:bg-white/30 transition-colors hidden sm:inline-flex items-center gap-1"
-        >
-          {exporting === 'geojson' ? <LoadingSpinner size="sm" color="white" /> : '🗺️'}
-          {t('export_geojson')}
-        </button>
-
-        <Link
-          to="/situation-report"
-          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 hover:bg-white/30 transition-colors hidden sm:inline-flex items-center gap-1"
-        >
-          📋 Situation Report
-        </Link>
-
         {refreshing && (
-          <span className="text-xs opacity-70 animate-pulse">{t('map_refresh')}</span>
+          <span className="text-xs opacity-70 animate-pulse flex-shrink-0">{t('map_refresh')}</span>
         )}
       </header>
+
+      {/* Scrollable map-controls toolbar — visible on all screen sizes */}
+      <div className="bg-undp-blue/95 border-b border-white/10 flex-shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 min-w-max">
+          <button onClick={() => setShowConsolidated(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${showConsolidated ? 'bg-white text-undp-blue' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            🔵 Consolidated
+          </button>
+          <button onClick={() => setShowHeatmap(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${showHeatmap ? 'bg-white text-undp-blue' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            {t('map_heatmap')}
+          </button>
+          <button onClick={() => setShowNeedsHeatmap(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${showNeedsHeatmap ? 'bg-white text-undp-red' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            🆘 Needs
+          </button>
+          <button onClick={() => setShowBuildings(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${showBuildings ? 'bg-white text-undp-blue' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            {t('map_buildings')}
+          </button>
+          <button onClick={() => setShowBuildingAggregate(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${showBuildingAggregate ? 'bg-white text-undp-blue' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            🏢 Buildings
+          </button>
+          <button onClick={() => setTimelineActive(v => !v)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${timelineActive ? 'bg-white text-undp-blue' : 'bg-white/20 text-white hover:bg-white/30'}`}>
+            ⏱ Timeline
+          </button>
+          <div className="w-px h-4 bg-white/20 flex-shrink-0" />
+          <button onClick={handleExportCSV} disabled={!!exporting}
+            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap disabled:opacity-50">
+            {exporting === 'csv' ? <LoadingSpinner size="sm" color="white" /> : '📥'} {t('export_csv')}
+          </button>
+          <button onClick={handleExportGeoJSON} disabled={!!exporting}
+            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap disabled:opacity-50">
+            {exporting === 'geojson' ? <LoadingSpinner size="sm" color="white" /> : '🗺️'} {t('export_geojson')}
+          </button>
+          <Link to="/situation-report"
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors whitespace-nowrap">
+            📋 SITREP
+          </Link>
+        </div>
+      </div>
 
       {/* Needs heatmap filter strip — only shown when Needs heatmap is active */}
       {showNeedsHeatmap && (
