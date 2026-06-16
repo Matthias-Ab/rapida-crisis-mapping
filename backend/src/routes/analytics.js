@@ -89,27 +89,35 @@ router.post('/translate', async (req, res, next) => {
 })
 
 // GET /api/v1/analytics/alerts
-// Detects mass incidents: 3+ complete-damage reports within ~1km in last 24h.
+// Detects mass incidents using PostGIS ST_ClusterDBSCAN (DBSCAN algorithm).
+// eps=0.005 degrees ≈ 500m radius; minpoints=3. Accurate regardless of grid
+// boundaries — a real incident straddling two 1km cells is always detected.
 router.get('/alerts', async (req, res, next) => {
   try {
     const { prisma } = require('../db/connection')
     const clusters = await prisma.$queryRaw`
       SELECT
-        COUNT(*)::int                           AS count,
-        AVG(latitude)::float                    AS lat,
-        AVG(longitude)::float                   AS lng,
-        MIN(location_text)                      AS location,
-        ARRAY_AGG(DISTINCT crisis_type)         AS crisis_types,
-        ARRAY_AGG(DISTINCT infra_type)          AS infra_types,
-        MAX(created_at)                         AS latest_at
-      FROM reports
-      WHERE damage_level = 'complete'
-        AND created_at > NOW() - INTERVAL '24 hours'
-        AND latitude  IS NOT NULL
-        AND longitude IS NOT NULL
-      GROUP BY ROUND(latitude::numeric, 2), ROUND(longitude::numeric, 2)
-      HAVING COUNT(*) >= 3
-      ORDER BY COUNT(*) DESC
+        cluster_id,
+        COUNT(*)::int                     AS count,
+        AVG(latitude)::float              AS lat,
+        AVG(longitude)::float             AS lng,
+        MIN(location_text)                AS location,
+        ARRAY_AGG(DISTINCT crisis_type)   AS crisis_types,
+        ARRAY_AGG(DISTINCT infra_type)    AS infra_types,
+        MAX(created_at)                   AS latest_at
+      FROM (
+        SELECT
+          id, latitude, longitude, location_text, crisis_type, infra_type, created_at,
+          ST_ClusterDBSCAN(coordinates::geometry, eps := 0.0045, minpoints := 3)
+            OVER () AS cluster_id
+        FROM reports
+        WHERE damage_level = 'complete'
+          AND created_at > NOW() - INTERVAL '24 hours'
+          AND coordinates IS NOT NULL
+      ) sub
+      WHERE cluster_id IS NOT NULL
+      GROUP BY cluster_id
+      ORDER BY count DESC
       LIMIT 5
     `
     res.json({
