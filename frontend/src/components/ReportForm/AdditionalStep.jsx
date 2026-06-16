@@ -3,31 +3,36 @@ import { useTranslation } from 'react-i18next'
 
 const MAX_DESC = 500
 
+// Electricity options aligned with UNDP Appendix 1
 const ELECTRICITY_OPTIONS = [
-  { value: 'on',      key: 'electricity_on',      emoji: '💡' },
-  { value: 'partial', key: 'electricity_partial',  emoji: '⚡' },
-  { value: 'off',     key: 'electricity_off',      emoji: '🔌' },
-  { value: 'damaged', key: 'electricity_damaged',  emoji: '🔧' },
-  { value: 'unknown', key: 'electricity_unknown',  emoji: '❓' }
+  { value: 'no_damage',   key: 'electricity_no_damage',   emoji: '✅' },
+  { value: 'minor',       key: 'electricity_minor',       emoji: '💡' },
+  { value: 'moderate',    key: 'electricity_moderate',    emoji: '⚡' },
+  { value: 'severe',      key: 'electricity_severe',      emoji: '⚠️' },
+  { value: 'destroyed',   key: 'electricity_destroyed',   emoji: '🔌' },
+  { value: 'unknown',     key: 'electricity_unknown',     emoji: '❓' }
 ]
 
+// Health options aligned with UNDP Appendix 1
 const HEALTH_OPTIONS = [
-  { value: 'operational', key: 'health_operational', emoji: '🏥' },
-  { value: 'limited',     key: 'health_limited',     emoji: '⚠️' },
-  { value: 'damaged',     key: 'health_damaged',     emoji: '🔧' },
-  { value: 'closed',      key: 'health_closed',      emoji: '🚫' },
-  { value: 'unknown',     key: 'health_unknown',     emoji: '❓' }
+  { value: 'functional',   key: 'health_functional',   emoji: '🏥' },
+  { value: 'partial',      key: 'health_partial',      emoji: '⚠️' },
+  { value: 'disrupted',    key: 'health_disrupted',    emoji: '🔧' },
+  { value: 'not_functioning', key: 'health_not_functioning', emoji: '🚫' },
+  { value: 'unknown',      key: 'health_unknown',      emoji: '❓' }
 ]
 
+// Pressing needs aligned with UNDP Appendix 1
 const NEEDS = [
-  { value: 'water', key: 'need_water', emoji: '💧' },
-  { value: 'food', key: 'need_food', emoji: '🍲' },
-  { value: 'shelter', key: 'need_shelter', emoji: '🏠' },
-  { value: 'medical', key: 'need_medical', emoji: '🩺' },
-  { value: 'rescue', key: 'need_rescue', emoji: '🚁' },
-  { value: 'electricity', key: 'need_electricity', emoji: '⚡' },
-  { value: 'communication', key: 'need_communication', emoji: '📡' },
-  { value: 'sanitation', key: 'need_sanitation', emoji: '🚿' }
+  { value: 'food_water',    key: 'need_food_water',    emoji: '🍲' },
+  { value: 'cash',          key: 'need_cash',          emoji: '💵' },
+  { value: 'healthcare',    key: 'need_healthcare',    emoji: '🩺' },
+  { value: 'shelter',       key: 'need_shelter',       emoji: '🏠' },
+  { value: 'livelihoods',   key: 'need_livelihoods',   emoji: '💼' },
+  { value: 'wash',          key: 'need_wash',          emoji: '🚿' },
+  { value: 'infrastructure',key: 'need_infrastructure',emoji: '🔧' },
+  { value: 'protection',    key: 'need_protection',    emoji: '🛡️' },
+  { value: 'community_support', key: 'need_community_support', emoji: '🤝' },
 ]
 
 export default function AdditionalStep({ value, onChange }) {
