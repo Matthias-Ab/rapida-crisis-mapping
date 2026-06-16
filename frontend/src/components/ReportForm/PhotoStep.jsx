@@ -1,8 +1,86 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { classifyDamage } from '../../services/imageAI'
 import LoadingSpinner from '../shared/LoadingSpinner'
 import { useBandwidth, compressImage } from '../../hooks/useBandwidth'
+
+// ── Webcam capture modal — works on desktop (getUserMedia) and mobile ─────
+function WebcamModal({ onCapture, onClose }) {
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const [ready, setReady] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then(stream => {
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.onloadedmetadata = () => setReady(true)
+        }
+      })
+      .catch(e => setError(e.message || 'Camera unavailable'))
+
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
+  const capture = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    const canvas = document.createElement('canvas')
+    canvas.width  = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    canvas.toBlob(blob => {
+      if (blob) {
+        onCapture(new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }))
+      }
+    }, 'image/jpeg', 0.88)
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+  }, [onCapture])
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col" role="dialog" aria-modal="true" aria-label="Take photo">
+      {error ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-white p-6 text-center gap-4">
+          <span className="text-5xl" aria-hidden="true">📷</span>
+          <p className="font-semibold">Camera unavailable</p>
+          <p className="text-sm text-gray-400">{error}</p>
+          <p className="text-sm text-gray-400">Use "Upload from Gallery" instead.</p>
+        </div>
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="flex-1 w-full object-cover"
+          style={{ background: '#000' }}
+        />
+      )}
+      <div className="flex gap-3 p-4 bg-black safe-area-inset-bottom">
+        <button
+          onClick={onClose}
+          className="flex-1 py-4 bg-gray-800 text-white rounded-2xl font-semibold text-base active:scale-95 transition-all"
+        >
+          Cancel
+        </button>
+        {!error && (
+          <button
+            onClick={capture}
+            disabled={!ready}
+            className="flex-1 py-4 bg-white text-black rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+          >
+            <span aria-hidden="true">📸</span> Capture
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -37,7 +115,6 @@ async function analyzeImageQuality(file) {
 export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChange, onAiSuggestion, error }) {
   const { t } = useTranslation()
   const isLowBandwidth = useBandwidth()
-  const cameraInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const additionalInputRef = useRef(null)
 
@@ -49,6 +126,7 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
   const [isLarge, setIsLarge] = useState(false)
   const [qualityWarning, setQualityWarning] = useState(null) // 'dark' | 'light' | null
   const [qualityDismissed, setQualityDismissed] = useState(false)
+  const [showWebcam, setShowWebcam] = useState(false)
 
   const [additionalPhotos, setAdditionalPhotos] = useState([])
   const [additionalPreviews, setAdditionalPreviews] = useState([])
@@ -152,6 +230,14 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
 
   return (
     <div className="space-y-5">
+      {/* Webcam modal */}
+      {showWebcam && (
+        <WebcamModal
+          onCapture={(file) => { setShowWebcam(false); handleFile(file) }}
+          onClose={() => setShowWebcam(false)}
+        />
+      )}
+
       {/* Low bandwidth notice */}
       {isLowBandwidth && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700 font-medium">
@@ -174,7 +260,7 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={() => setShowWebcam(true)}
             className="flex flex-col items-center justify-center gap-2 py-6 px-3 rounded-2xl border-3 border-dashed border-undp-blue bg-blue-50 hover:bg-blue-100 active:scale-95 transition-all min-h-[120px]"
             aria-label={t('photo_capture')}
           >
@@ -225,15 +311,6 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
       )}
 
       {/* Hidden inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
-        aria-hidden="true"
-      />
       <input
         ref={galleryInputRef}
         type="file"
