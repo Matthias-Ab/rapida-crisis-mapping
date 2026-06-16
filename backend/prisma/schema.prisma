@@ -36,6 +36,7 @@ model Report {
   language             String    @default("en")
   isFlagged            Boolean   @default(false) @map("is_flagged")
   isVerified           Boolean   @default(false) @map("is_verified")
+  confirmationCount    Int       @default(0) @map("confirmation_count")
   duplicateOfId        String?   @map("duplicate_of") @db.Uuid
   duplicateOf          Report?   @relation("Duplicates", fields: [duplicateOfId], references: [id])
   duplicates           Report[]  @relation("Duplicates")
