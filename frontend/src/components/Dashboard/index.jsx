@@ -411,6 +411,7 @@ export default function Dashboard() {
   const [needsHeatmapType, setNeedsHeatmapType] = useState('all')
   const [showBuildings, setShowBuildings] = useState(false)
   const [showBuildingAggregate, setShowBuildingAggregate] = useState(false)
+  const [showConsolidated, setShowConsolidated] = useState(false)
   const apiKey = sessionStorage.getItem('dashboard_key') || import.meta.env.VITE_DASHBOARD_KEY || ''
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [exporting, setExporting] = useState(null)
@@ -629,6 +630,13 @@ export default function Dashboard() {
 
         {/* Map controls */}
         <button
+          onClick={() => setShowConsolidated(v => !v)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hidden sm:inline-flex items-center gap-1 ${showConsolidated ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
+          title="Group nearby reports into single incident markers"
+        >
+          🔵 Consolidated
+        </button>
+        <button
           onClick={() => setShowHeatmap((v) => !v)}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${showHeatmap ? 'bg-white text-undp-blue' : 'bg-white/20 hover:bg-white/30'}`}
         >
@@ -786,6 +794,7 @@ export default function Dashboard() {
                 needsHeatmapType={needsHeatmapType}
                 showBuildings={showBuildings}
                 showBuildingAggregate={showBuildingAggregate}
+                showConsolidated={showConsolidated}
                 apiKey={apiKey}
                 flyTarget={flyTarget}
               />

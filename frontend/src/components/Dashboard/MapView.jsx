@@ -69,6 +69,70 @@ function liveStatus(lastRefreshDate, refreshing) {
   return { label: `Updated ${ageMin}m ago`, kind: 'stale' }
 }
 
+const DAMAGE_COLORS_HEX = { none: '#00833E', partial: '#F5A623', complete: '#D12800' }
+
+// ── Consolidated cluster layer — one marker per incident group ────────────────
+function ConsolidatedLayer({ apiKey }) {
+  const map = useMap()
+  const groupRef = useRef(null)
+  const [clusters, setClusters] = useState([])
+
+  useEffect(() => {
+    fetch('/api/v1/analytics/consolidated')
+      .then(r => r.json())
+      .then(d => setClusters(d.clusters || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!map || !clusters.length) return
+
+    if (groupRef.current) map.removeLayer(groupRef.current)
+    const group = L.layerGroup()
+
+    clusters.forEach(c => {
+      const color = DAMAGE_COLORS_HEX[c.dominant_damage] || DAMAGE_COLORS_HEX.partial
+      const r = Math.max(16, Math.min(40, 12 + c.report_count * 3))
+
+      const icon = L.divIcon({
+        html: `
+          <div style="
+            width:${r * 2}px; height:${r * 2}px;
+            background:${color}; border:3px solid white;
+            border-radius:50%; display:flex; align-items:center; justify-content:center;
+            box-shadow:0 2px 8px rgba(0,0,0,0.35);
+            font-weight:900; font-size:${r < 20 ? 10 : 13}px; color:white;
+          ">${c.report_count}</div>`,
+        iconSize: [r * 2, r * 2],
+        iconAnchor: [r, r],
+        className: ''
+      })
+
+      const marker = L.marker([c.lat, c.lng], { icon })
+      marker.bindPopup(`
+        <div style="min-width:180px;font-family:sans-serif">
+          <p style="font-weight:700;margin:0 0 4px">${c.location_text || 'Incident cluster'}</p>
+          <p style="font-size:12px;color:#555;margin:0 0 6px">
+            ${c.report_count} independent reporters
+          </p>
+          <div style="display:flex;gap:6px;font-size:11px;margin-bottom:6px">
+            ${c.complete_count > 0 ? `<span style="background:#D12800;color:white;padding:1px 6px;border-radius:8px">🔴 ${c.complete_count} complete</span>` : ''}
+            ${c.partial_count  > 0 ? `<span style="background:#F5A623;color:white;padding:1px 6px;border-radius:8px">⚠️ ${c.partial_count} partial</span>` : ''}
+          </div>
+          ${c.crisis_types?.length ? `<p style="font-size:11px;color:#777;margin:0">${c.crisis_types.join(', ')}</p>` : ''}
+        </div>
+      `)
+      group.addLayer(marker)
+    })
+
+    group.addTo(map)
+    groupRef.current = group
+    return () => { if (groupRef.current) map.removeLayer(groupRef.current) }
+  }, [map, clusters])
+
+  return null
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function HeatmapLayer({ reports }) {
   const map = useMap()
@@ -505,7 +569,7 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showNeedsHeatmap, needsHeatmapType, showBuildings, showBuildingAggregate, apiKey, flyTarget }) {
+export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showNeedsHeatmap, needsHeatmapType, showBuildings, showBuildingAggregate, showConsolidated, apiKey, flyTarget }) {
   const { t } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
   const [selectedReport, setSelectedReport] = useState(null)
@@ -579,6 +643,8 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
             needType={needsHeatmapType || 'all'}
           />
         )}
+
+        {showConsolidated && <ConsolidatedLayer apiKey={apiKey} />}
 
         {showBuildings && <BuildingLayer />}
 

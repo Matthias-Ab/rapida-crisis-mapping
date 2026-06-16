@@ -136,6 +136,61 @@ router.get('/alerts', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// GET /api/v1/analytics/consolidated
+// Groups reports into geographic incidents using DBSCAN (eps~500m, minpoints=2).
+// Returns consolidated cluster view: each item = multiple independent reporters
+// confirming the same incident. Useful for de-noising and building the
+// "consensus view" the dashboard's Consolidated toggle shows.
+router.get('/consolidated', async (req, res, next) => {
+  try {
+    const { prisma } = require('../db/connection')
+    const clusters = await prisma.$queryRaw`
+      SELECT
+        cluster_id,
+        COUNT(*)::int                                           AS report_count,
+        AVG(latitude)::float                                    AS lat,
+        AVG(longitude)::float                                   AS lng,
+        MIN(location_text)                                      AS location_text,
+        MODE() WITHIN GROUP (ORDER BY damage_level)             AS dominant_damage,
+        ARRAY_AGG(DISTINCT crisis_type)
+          FILTER (WHERE crisis_type IS NOT NULL)                AS crisis_types,
+        SUM(CASE WHEN damage_level = 'complete' THEN 1 ELSE 0 END)::int AS complete_count,
+        SUM(CASE WHEN damage_level = 'partial'  THEN 1 ELSE 0 END)::int AS partial_count,
+        SUM(CASE WHEN damage_level = 'none'     THEN 1 ELSE 0 END)::int AS none_count,
+        MAX(created_at)                                         AS latest_at
+      FROM (
+        SELECT *,
+          ST_ClusterDBSCAN(coordinates::geometry, eps := 0.0045, minpoints := 2)
+          OVER () AS cluster_id
+        FROM reports
+        WHERE coordinates IS NOT NULL
+      ) sub
+      WHERE cluster_id IS NOT NULL
+      GROUP BY cluster_id
+      HAVING COUNT(*) >= 2
+      ORDER BY report_count DESC
+      LIMIT 200
+    `
+    res.json({
+      clusters: clusters.map(c => ({
+        id: `cluster_${c.cluster_id}`,
+        report_count: c.report_count,
+        lat: c.lat,
+        lng: c.lng,
+        location_text: c.location_text,
+        dominant_damage: c.dominant_damage,
+        crisis_types: (c.crisis_types || []).filter(Boolean),
+        complete_count: c.complete_count,
+        partial_count: c.partial_count,
+        none_count: c.none_count,
+        latest_at: c.latest_at,
+        confidence: Math.min(100, Math.round(c.report_count / Math.max(1, c.report_count) * 40 + (c.complete_count / c.report_count) * 60))
+      })),
+      total: clusters.length
+    })
+  } catch (err) { next(err) }
+})
+
 // GET /api/v1/analytics/ai-insights
 // Returns 3 short data-driven intelligence observations for dashboard analysts.
 router.get('/ai-insights', auth, async (req, res, next) => {

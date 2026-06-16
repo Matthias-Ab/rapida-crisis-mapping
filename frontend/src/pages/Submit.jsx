@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useStore, BADGE_MILESTONES } from '../store'
 import { useOfflineQueue } from '../hooks/useOfflineQueue'
+import { useBandwidth } from '../hooks/useBandwidth'
 import { getAnalytics } from '../services/api'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import ReportForm from '../components/ReportForm'
@@ -31,8 +32,10 @@ export default function Submit() {
   const submissionCount = useStore((s) => s.submissionCount)
   const submittedReportIds = useStore((s) => s.submittedReportIds)
   const { queueCount, isSyncing, sync } = useOfflineQueue()
+  const isLowBandwidth = useBandwidth()
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [analytics, setAnalytics] = useState(null)
+  const [reportMode, setReportMode] = useState(null) // null | 'quick' | 'full'
   const [showContributions, setShowContributions] = useState(false)
 
   useEffect(() => {
@@ -248,10 +251,52 @@ export default function Submit() {
         </div>
       )}
 
+      {/* Low bandwidth banner */}
+      {isLowBandwidth && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-xs text-amber-700 font-medium flex-shrink-0">
+          <span aria-hidden="true">📡</span>
+          Slow connection — photos will be auto-compressed and AI classification is disabled
+        </div>
+      )}
+
+      {/* Mode selector — shown before the form */}
+      {!reportMode && (
+        <main className="flex-1 max-w-lg mx-auto w-full px-4 pt-6 pb-10">
+          <p className="text-center text-gray-500 text-sm mb-6">How would you like to report?</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => setReportMode('quick')}
+              className="w-full flex items-start gap-4 p-5 bg-undp-blue text-white rounded-2xl shadow-lg hover:bg-blue-700 active:scale-[.98] transition-all text-left"
+            >
+              <span className="text-3xl flex-shrink-0" aria-hidden="true">🚶</span>
+              <div>
+                <p className="font-bold text-base">Quick Report</p>
+                <p className="text-blue-200 text-sm mt-0.5">3 steps — Photo, Location, Damage type. Fast, simple, for anyone.</p>
+              </div>
+            </button>
+            <button
+              onClick={() => setReportMode('full')}
+              className="w-full flex items-start gap-4 p-5 bg-white border-2 border-gray-200 rounded-2xl hover:border-undp-blue active:scale-[.98] transition-all text-left"
+            >
+              <span className="text-3xl flex-shrink-0" aria-hidden="true">📋</span>
+              <div>
+                <p className="font-bold text-base text-gray-800">Detailed Report</p>
+                <p className="text-gray-500 text-sm mt-0.5">5 steps — includes infrastructure details, electricity, health services, pressing needs. For responders and field teams.</p>
+              </div>
+            </button>
+          </div>
+        </main>
+      )}
+
       {/* Form */}
-      <main className="flex-1 max-w-lg mx-auto w-full">
-        <ReportForm />
-      </main>
+      {reportMode && (
+        <main className="flex-1 max-w-lg mx-auto w-full">
+          <ReportForm
+            quickMode={reportMode === 'quick'}
+            onModeChange={() => setReportMode(null)}
+          />
+        </main>
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-3 px-4 text-center text-xs text-gray-400 flex-shrink-0">

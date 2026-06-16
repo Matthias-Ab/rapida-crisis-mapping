@@ -15,18 +15,10 @@ import LocationStep from './LocationStep'
 import DamageStep from './DamageStep'
 import InfraStep from './InfraStep'
 import AdditionalStep from './AdditionalStep'
+import QuickDamageStep from './QuickDamageStep'
 import VoiceReportModal from './VoiceReportModal'
 
-const TOTAL_STEPS = 5
-
-const STEP_TITLES = [
-  'step1_title',
-  'step2_title',
-  'step3_title',
-  'step4_title',
-  'step5_title'
-]
-
+const STEP_TITLES = ['step1_title', 'step2_title', 'step3_title', 'step4_title', 'step5_title']
 const STEP_ICONS = ['📷', '📍', '💥', '🏗️', '📝']
 
 const INITIAL_FORM = {
@@ -54,8 +46,11 @@ function ShareIcon({ className }) {
   )
 }
 
-export default function ReportForm() {
+export default function ReportForm({ quickMode = false, onModeChange }) {
   const { t } = useTranslation()
+  const TOTAL_STEPS = quickMode ? 3 : 5
+  const STEP_TITLES_Q = ['step1_title', 'step2_title', 'step3_title']
+  const STEP_ICONS_Q = ['📷', '📍', '💥']
   const sessionId = useStore((s) => s.sessionId)
   const recordSubmission = useStore((s) => s.recordSubmission)
   const { refreshCount } = useOfflineQueue()
@@ -103,13 +98,21 @@ export default function ReportForm() {
     const errs = {}
     if (s === 1 && !form.photo) errs.photo = t('error_photo_required')
     if (s === 2 && !form.location) errs.location = t('error_location_required')
-    if (s === 3 && !form.damageLevel) errs.damageLevel = t('error_damage_required')
-    if (s === 4) {
-      if (!form.infraType) errs.infraType = t('error_infra_required')
-      if (!form.crisisType) errs.crisisType = t('error_crisis_required')
+    if (quickMode) {
+      // Quick mode step 3: damage + crisis type on one screen
+      if (s === 3) {
+        if (!form.damageLevel) errs.damageLevel = t('error_damage_required')
+        if (!form.crisisType) errs.crisisType = t('error_crisis_required')
+      }
+    } else {
+      if (s === 3 && !form.damageLevel) errs.damageLevel = t('error_damage_required')
+      if (s === 4) {
+        if (!form.infraType) errs.infraType = t('error_infra_required')
+        if (!form.crisisType) errs.crisisType = t('error_crisis_required')
+      }
     }
     return errs
-  }, [form, t])
+  }, [form, t, quickMode])
 
   const handleNext = useCallback(() => {
     const errs = validateStep(step)
@@ -364,11 +367,19 @@ export default function ReportForm() {
       {/* Progress bar */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-undp-blue">
-            {t('step')} {step} {t('of')} {TOTAL_STEPS}
-          </span>
+          <div className="flex items-center gap-2">
+            {onModeChange && step === 1 && (
+              <button onClick={onModeChange} className="text-xs text-gray-400 hover:text-undp-blue transition-colors" aria-label="Change mode">
+                ← Mode
+              </button>
+            )}
+            <span className="text-sm font-semibold text-undp-blue">
+              {t('step')} {step} {t('of')} {TOTAL_STEPS}
+            </span>
+            {quickMode && <span className="text-[10px] bg-undp-blue/10 text-undp-blue px-1.5 py-0.5 rounded-full font-bold">Quick</span>}
+          </div>
           <span className="text-sm font-bold text-gray-700">
-            {t(STEP_TITLES[step - 1])}
+            {t((quickMode ? STEP_TITLES_Q : STEP_TITLES)[step - 1])}
           </span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -393,6 +404,7 @@ export default function ReportForm() {
           </div>
 
           {Array.from({ length: TOTAL_STEPS }, (_, i) => {
+            const icons = quickMode ? STEP_ICONS_Q : STEP_ICONS
             const isCompleted = i + 1 < step
             const isActive = i + 1 === step
             return (
@@ -412,7 +424,7 @@ export default function ReportForm() {
                 <span className={`text-[9px] leading-tight select-none ${
                   isActive ? 'text-undp-blue font-semibold' : isCompleted ? 'text-undp-teal' : 'text-gray-400'
                 }`}>
-                  {STEP_ICONS[i]}
+                  {icons[i]}
                 </span>
               </div>
             )
@@ -461,7 +473,16 @@ export default function ReportForm() {
             error={errors.location}
           />
         )}
-        {step === 3 && (
+        {step === 3 && quickMode && (
+          <QuickDamageStep
+            damageLevel={form.damageLevel}
+            crisisType={form.crisisType}
+            onDamageChange={(level) => updateForm('damageLevel', level)}
+            onCrisisChange={(type) => updateForm('crisisType', type)}
+            errors={{ damageLevel: errors.damageLevel, crisisType: errors.crisisType }}
+          />
+        )}
+        {step === 3 && !quickMode && (
           <DamageStep
             value={form.damageLevel}
             onChange={(level) => updateForm('damageLevel', level)}

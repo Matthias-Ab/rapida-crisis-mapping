@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { classifyDamage } from '../../services/imageAI'
 import LoadingSpinner from '../shared/LoadingSpinner'
+import { useBandwidth, compressImage } from '../../hooks/useBandwidth'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -35,6 +36,7 @@ async function analyzeImageQuality(file) {
 
 export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChange, onAiSuggestion, error }) {
   const { t } = useTranslation()
+  const isLowBandwidth = useBandwidth()
   const cameraInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const additionalInputRef = useRef(null)
@@ -84,13 +86,16 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
     setAiResult(null)
     setQualityWarning(null)
     setQualityDismissed(false)
-    setIsLarge(file.size > LARGE_FILE_THRESHOLD)
+
+    // On slow connections compress before upload: 800px max, 60% quality (~5-10× smaller)
+    const processedFile = isLowBandwidth ? await compressImage(file) : file
+    setIsLarge(processedFile.size > LARGE_FILE_THRESHOLD)
 
     if (primaryPreview) URL.revokeObjectURL(primaryPreview)
-    const url = URL.createObjectURL(file)
+    const url = URL.createObjectURL(processedFile)
     setPrimaryPreview(url)
-    setPrimaryPhoto(file)
-    onPhotoChange(file)
+    setPrimaryPhoto(processedFile)
+    onPhotoChange(processedFile)
 
     // Run AI classification and brightness check in parallel
     setAiLoading(true)
@@ -147,6 +152,14 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
 
   return (
     <div className="space-y-5">
+      {/* Low bandwidth notice */}
+      {isLowBandwidth && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700 font-medium">
+          <span aria-hidden="true">📡</span>
+          Slow connection detected — photos auto-compressed for faster upload
+        </div>
+      )}
+
       {/* Photo count indicator */}
       {primaryPhoto && (
         <div className="flex items-center justify-between">
