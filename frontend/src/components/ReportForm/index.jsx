@@ -145,7 +145,8 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
     const formDataObj = {
       session_id: sessionId,
       damage_level: form.damageLevel,
-      infra_type: form.infraType,
+      // Quick mode skips the infra step — default to 'other' so backend validation passes
+      infra_type: form.infraType || (quickMode ? 'other' : ''),
       infra_name: form.infraName || '',
       crisis_type: form.crisisType,
       debris_present: form.debris === 'yes' ? 'true' : form.debris === 'no' ? 'false' : '',
