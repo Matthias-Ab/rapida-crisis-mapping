@@ -224,14 +224,41 @@ function ClusteredMarkers({ reports, onMarkerClick }) {
     const group = L.markerClusterGroup({
       maxClusterRadius: 60,
       disableClusteringAtZoom: 16,
-      spiderfyOnMaxZoom: true
+      spiderfyOnMaxZoom: true,
+      // Color cluster by worst damage level among its children
+      iconCreateFunction: (cluster) => {
+        const markers = cluster.getAllChildMarkers()
+        const levels  = markers.map(m => m._rapida_damage || 'none')
+        const hasComplete = levels.includes('complete')
+        const hasPartial  = levels.includes('partial')
+        const color = hasComplete ? '#D12800' : hasPartial ? '#F5A623' : '#00833E'
+
+        const count = cluster.getChildCount()
+        const size  = count < 10 ? 36 : count < 50 ? 44 : count < 200 ? 52 : 60
+        const fs    = count < 100 ? 13 : 11
+
+        return L.divIcon({
+          html: `<div style="
+            width:${size}px;height:${size}px;
+            background:${color};
+            border:3px solid white;
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 2px 10px rgba(0,0,0,.35);
+            font-weight:900;font-size:${fs}px;color:white;
+          ">${count}</div>`,
+          iconSize:   [size, size],
+          iconAnchor: [size / 2, size / 2],
+          className:  ''
+        })
+      }
     })
 
     reports.forEach((report) => {
       if (!report.geometry?.coordinates) return
       const [lng, lat] = report.geometry.coordinates
       const damage = report.properties?.damage_level || 'partial'
-      const color = DAMAGE_COLORS[damage] || DAMAGE_COLORS.partial
+      const color  = DAMAGE_COLORS[damage] || DAMAGE_COLORS.partial
 
       const icon = L.divIcon({
         html: `<div style="
@@ -241,12 +268,13 @@ function ClusteredMarkers({ reports, onMarkerClick }) {
           border-radius:50%;
           box-shadow:0 2px 4px rgba(0,0,0,0.3);
         "></div>`,
-        iconSize: [24, 24],
+        iconSize:   [24, 24],
         iconAnchor: [12, 12],
-        className: ''
+        className:  ''
       })
 
       const marker = L.marker([lat, lng], { icon })
+      marker._rapida_damage = damage   // stored for iconCreateFunction
       marker.on('click', () => onMarkerClick(report))
       group.addLayer(marker)
     })
