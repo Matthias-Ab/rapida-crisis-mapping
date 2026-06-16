@@ -12,6 +12,7 @@ const MapPage       = lazy(() => import('./pages/Map'))
 const ReportDetail  = lazy(() => import('./pages/ReportDetail'))
 const Reports       = lazy(() => import('./pages/Reports'))
 const SituationReport = lazy(() => import('./pages/SituationReport'))
+const Overview      = lazy(() => import('./pages/Overview'))
 
 function PageLoader() {
   return (
@@ -75,7 +76,8 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/"                element={<Navigate to="/submit" replace />} />
+        <Route path="/"                element={<Navigate to="/overview" replace />} />
+        <Route path="/overview"        element={<Overview />} />
         <Route path="/submit"          element={<Submit />} />
         <Route path="/privacy"         element={<Privacy />} />
         <Route path="/dashboard"       element={<Dashboard />} />
