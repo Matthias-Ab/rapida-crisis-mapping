@@ -10,7 +10,8 @@ import { chromium } from '/tmp/pw_test/node_modules/playwright/index.mjs'
 
 const BASE      = process.env.APP_URL  || 'http://localhost:5174'
 const DASH_KEY  = 'rapida-dev-key-2026'
-const TIMEOUT   = 12000
+const IS_LIVE   = BASE.includes('vercel') || BASE.includes('railway')
+const TIMEOUT   = IS_LIVE ? 20000 : 12000
 
 const results = []
 let browser, page
@@ -198,13 +199,13 @@ async function run() {
     await page.click('button:has-text("Next")')
     await page.waitForSelector('text=Step 3 of 5', { timeout: 5000 })
 
-    // Step 3: damage — DamageStep uses .damage-card class buttons
-    const damageBtns = await page.$$('button.damage-card, button[class*="damage-card"]')
-    if (damageBtns.length === 0) throw new Error('No damage-card buttons found')
+    // Step 3: damage — click by role and position (class names may differ in prod builds)
+    const damageBtns = await page.$$('[role="radiogroup"] button, button.damage-card')
+    if (damageBtns.length === 0) throw new Error('No damage level buttons found')
     await damageBtns[1].click() // Partial = index 1
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(500)
     await page.click('button:has-text("Next")')
-    await page.waitForSelector('text=Step 4 of 5', { timeout: 5000 })
+    await page.waitForSelector('text=Step 4 of 5', { timeout: TIMEOUT })
 
     // Step 4: infra + crisis — click first infra button and first crisis radio
     const infraBtns = await page.$$('button[aria-pressed]')
@@ -399,7 +400,13 @@ async function run() {
   })
 
   await check('Priority queue dispatch removes item', async () => {
-    const dispatchBtns = await page.$$('button:has-text("Dispatch")')
+    // Scroll sidebar to load Priority Queue panel
+    await page.evaluate(() => {
+      const sidebar = document.querySelector('[class*="overflow-y-auto"]')
+      if (sidebar) sidebar.scrollTop = sidebar.scrollHeight
+    })
+    await page.waitForTimeout(1500)
+    const dispatchBtns = await page.$$('button:has-text("Dispatch"), button:has-text("✓ Dispatch")')
     if (!dispatchBtns.length) throw new Error('No dispatch buttons found')
     const initialLen = dispatchBtns.length
     await dispatchBtns[0].click()
@@ -410,6 +417,12 @@ async function run() {
   })
 
   await check('Photo Evidence panel opens and shows thumbnails', async () => {
+    // Scroll back to top of sidebar to find Photo Evidence
+    await page.evaluate(() => {
+      const sidebar = document.querySelector('[class*="overflow-y-auto"]')
+      if (sidebar) sidebar.scrollTop = 0
+    })
+    await page.waitForTimeout(500)
     const panel = await page.$('button:has-text("Photo Evidence")')
     if (!panel) throw new Error('Photo Evidence panel not found')
     await panel.click()
@@ -446,7 +459,7 @@ async function run() {
   await page.waitForSelector('input[type="password"]', { timeout: TIMEOUT })
   await page.fill('input[type="password"]', DASH_KEY)
   await page.click('button:has-text("Access Report")')
-  await page.waitForSelector('text=Crisis Situation Report', { timeout: 12000 })
+  await page.waitForSelector('text=Crisis Situation Report', { timeout: 30000 })
 
   await check('All 5 metric cards visible', async () => {
     await page.waitForSelector('text=Reports (24h)', { timeout: 5000 })
