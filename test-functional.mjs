@@ -177,19 +177,18 @@ async function run() {
     await goto('/submit')
     await page.waitForSelector('text=Detailed Report', { timeout: TIMEOUT })
     await page.click('text=Detailed Report')
-    await page.waitForSelector('text=Step 1 of 5', { timeout: 5000 })
+    await page.waitForSelector('text=Step 1 of 5', { timeout: TIMEOUT })
 
     // Step 1: photo
     await injectPhoto('input[type="file"][accept*="image"]')
     await page.waitForTimeout(800)
     await page.click('button:has-text("Next")')
-    await page.waitForSelector('text=Step 2 of 5', { timeout: 5000 })
+    await page.waitForSelector('text=Step 2 of 5', { timeout: TIMEOUT })
 
     // Step 2: click GPS button to trigger location request (mock returns immediately)
     const gpsBtn = await page.$('button:has-text("Use My Current Location")')
     if (gpsBtn) {
       await gpsBtn.click()
-      // Wait for location to be set — look for coordinate text or "Location selected"
       await page.waitForFunction(() => {
         const body = document.body.innerText
         return body.includes('Location selected') || body.includes('36.') || body.includes('Accuracy')
@@ -197,7 +196,7 @@ async function run() {
       await page.waitForTimeout(500)
     }
     await page.click('button:has-text("Next")')
-    await page.waitForSelector('text=Step 3 of 5', { timeout: 5000 })
+    await page.waitForSelector('text=Step 3 of 5', { timeout: TIMEOUT })
 
     // Step 3: damage — click by role and position (class names may differ in prod builds)
     const damageBtns = await page.$$('[role="radiogroup"] button, button.damage-card')
@@ -207,7 +206,7 @@ async function run() {
     await page.click('button:has-text("Next")')
     await page.waitForSelector('text=Step 4 of 5', { timeout: TIMEOUT })
 
-    // Step 4: infra + crisis — click first infra button and first crisis radio
+    // Step 4: infra + crisis + debris (all required)
     const infraBtns = await page.$$('button[aria-pressed]')
     if (infraBtns.length > 0) await infraBtns[0].click() // Residential
     await page.waitForTimeout(200)
@@ -215,13 +214,21 @@ async function run() {
     const crisisLabel = await page.$('label[class*="rounded-xl"], label:has(input[type="radio"])')
     if (crisisLabel) await crisisLabel.click()
     else {
-      // Fallback: click any radio input
       const radio = await page.$('input[type="radio"]')
       if (radio) await radio.click()
     }
+    await page.waitForTimeout(200)
+    // Debris — required since audit fix; click "Yes" or first debris button
+    const debrisBtns = await page.$$('button[aria-pressed]:has-text("Yes"), button:has-text("Yes")')
+    if (debrisBtns.length > 0) await debrisBtns[0].click()
+    else {
+      // Find any debris-related button (grid of 3 buttons after the debris question)
+      const allAriaPressed = await page.$$('button[aria-pressed]')
+      if (allAriaPressed.length > 2) await allAriaPressed[allAriaPressed.length - 3].click()
+    }
     await page.waitForTimeout(300)
     await page.click('button:has-text("Next")')
-    await page.waitForSelector('text=Step 5 of 5', { timeout: 5000 })
+    await page.waitForSelector('text=Step 5 of 5', { timeout: TIMEOUT })
   })
 
   await check('Step 5 description textarea works', async () => {
