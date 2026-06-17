@@ -1,38 +1,39 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
+import { CheckCircleIcon, WarningIcon, XCircleIcon } from '../shared/Icons'
 
 const DAMAGE_OPTIONS = [
   {
     value: 'none',
-    icon: '✅',
+    Icon: CheckCircleIcon,
     labelKey: 'damage_none',
     descKey: 'damage_none_desc',
-    cardClass: 'selected-none',
     borderColor: 'border-undp-green',
     bgColor: 'bg-green-50',
     textColor: 'text-undp-green',
+    iconColor: 'text-undp-green',
     hoverBg: 'hover:bg-green-50'
   },
   {
     value: 'partial',
-    icon: '⚠️',
+    Icon: WarningIcon,
     labelKey: 'damage_partial',
     descKey: 'damage_partial_desc',
-    cardClass: 'selected-partial',
     borderColor: 'border-undp-amber',
     bgColor: 'bg-amber-50',
     textColor: 'text-yellow-700',
+    iconColor: 'text-undp-amber',
     hoverBg: 'hover:bg-amber-50'
   },
   {
     value: 'complete',
-    icon: '🔴',
+    Icon: XCircleIcon,
     labelKey: 'damage_complete',
     descKey: 'damage_complete_desc',
-    cardClass: 'selected-complete',
     borderColor: 'border-undp-red',
     bgColor: 'bg-red-50',
     textColor: 'text-undp-red',
+    iconColor: 'text-undp-red',
     hoverBg: 'hover:bg-red-50'
   }
 ]
@@ -59,11 +60,11 @@ export default function DamageStep({ value, onChange, error }) {
                 }`}
             >
               <span
-                className="text-4xl flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl"
-                style={{ fontSize: '2rem' }}
+                className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl
+                  ${isSelected ? opt.bgColor : 'bg-gray-50'}`}
                 aria-hidden="true"
               >
-                {opt.icon}
+                <opt.Icon className={`w-7 h-7 ${isSelected ? opt.iconColor : 'text-gray-400'}`} />
               </span>
               <div className="flex-1 min-w-0">
                 <p className={`font-bold text-lg leading-tight ${isSelected ? opt.textColor : 'text-gray-800'}`}>

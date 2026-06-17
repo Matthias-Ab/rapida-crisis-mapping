@@ -17,9 +17,10 @@ import InfraStep from './InfraStep'
 import AdditionalStep from './AdditionalStep'
 import QuickDamageStep from './QuickDamageStep'
 import VoiceReportModal from './VoiceReportModal'
+import { CameraIcon, LocationPinIcon, DamageIcon, BuildingIcon, NotesIcon } from '../shared/Icons'
 
 const STEP_TITLES = ['step1_title', 'step2_title', 'step3_title', 'step4_title', 'step5_title']
-const STEP_ICONS = ['📷', '📍', '💥', '🏗️', '📝']
+const STEP_ICON_COMPONENTS = [CameraIcon, LocationPinIcon, DamageIcon, BuildingIcon, NotesIcon]
 
 const INITIAL_FORM = {
   photo: null,
@@ -50,7 +51,7 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
   const { t } = useTranslation()
   const TOTAL_STEPS = quickMode ? 3 : 5
   const STEP_TITLES_Q = ['step1_title', 'step2_title', 'step3_title']
-  const STEP_ICONS_Q = ['📷', '📍', '💥']
+  const STEP_ICON_COMPONENTS_Q = [CameraIcon, LocationPinIcon, DamageIcon]
   const sessionId = useStore((s) => s.sessionId)
   const recordSubmission = useStore((s) => s.recordSubmission)
   const { refreshCount } = useOfflineQueue()
@@ -399,28 +400,27 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
           </div>
 
           {Array.from({ length: TOTAL_STEPS }, (_, i) => {
-            const icons = quickMode ? STEP_ICONS_Q : STEP_ICONS
+            const iconSet = quickMode ? STEP_ICON_COMPONENTS_Q : STEP_ICON_COMPONENTS
+            const StepIcon = iconSet[i]
             const isCompleted = i + 1 < step
             const isActive = i + 1 === step
             return (
               <div key={i} className="relative z-10 flex flex-col items-center gap-1">
                 <div
-                  className={`flex items-center justify-center rounded-full transition-all duration-300 font-bold ${
+                  className={`flex items-center justify-center rounded-full transition-all duration-300 ${
                     isCompleted
-                      ? 'w-3.5 h-3.5 bg-undp-teal text-white text-[8px]'
+                      ? 'w-5 h-5 bg-undp-teal text-white'
                       : isActive
-                        ? 'w-4 h-4 bg-undp-blue text-white text-[9px] shadow-md shadow-undp-blue/30'
-                        : 'w-3 h-3 bg-gray-300 text-gray-400 text-[7px]'
+                        ? 'w-5 h-5 bg-undp-blue text-white shadow-md shadow-undp-blue/30'
+                        : 'w-5 h-5 bg-gray-200 text-gray-400'
                   }`}
                   aria-hidden="true"
                 >
-                  {isCompleted ? '✓' : ''}
+                  {isCompleted
+                    ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                    : StepIcon && <StepIcon className="w-3 h-3" />
+                  }
                 </div>
-                <span className={`text-[9px] leading-tight select-none ${
-                  isActive ? 'text-undp-blue font-semibold' : isCompleted ? 'text-undp-teal' : 'text-gray-400'
-                }`}>
-                  {icons[i]}
-                </span>
               </div>
             )
           })}
