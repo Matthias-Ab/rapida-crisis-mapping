@@ -104,7 +104,8 @@ The platform is designed around three core principles: **anonymity** (no persona
 
 ## Live Demo
 
-> **Live demo:** _deployment in progress — URL will be added before June 23 submission._
+> **Live demo:** https://rapida-crisis-mapping.vercel.app
+> Dashboard key: `rapida-dev-key-2026`
 > To deploy your own instance, see [DEPLOYMENT.md](DEPLOYMENT.md) or use one of the one-click options below.
 
 ### One-click deploy options

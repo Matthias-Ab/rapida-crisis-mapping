@@ -174,6 +174,17 @@ Railway free tier may sleep after inactivity. Set up a free ping:
 
 ---
 
+## Live Deployment URLs
+
+| Service | URL |
+|---|---|
+| **App (Frontend)** | https://rapida-crisis-mapping.vercel.app |
+| **Backend API** | https://rapida-crisis-mapping-production.up.railway.app |
+| **Health check** | https://rapida-crisis-mapping-production.up.railway.app/api/v1/health |
+| **Dashboard key** | `rapida-dev-key-2026` |
+
+---
+
 ## Testing After Deployment
 
 Open the Vercel URL and verify:
