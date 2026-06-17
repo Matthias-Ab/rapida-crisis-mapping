@@ -151,10 +151,6 @@ async function getTrends(hours = 3) {
   return { current, previous, change_pct: pct, hours }
 }
 
-// Priority: score reports by urgency = damage × infra_weight × recency_decay
-// complete=100, partial=50, none=10
-// utility/community/government = 1.5/1.4/1.3, others lower
-// Decays exponentially over 48h
 async function getPriorityReports(limit = 15) {
   const cutoff = new Date(Date.now() - 7 * 24 * 3600000)
   const rows = await prisma.$queryRaw`

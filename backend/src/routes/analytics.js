@@ -184,7 +184,7 @@ router.get('/consolidated', async (req, res, next) => {
         partial_count: c.partial_count,
         none_count: c.none_count,
         latest_at: c.latest_at,
-        confidence: Math.min(100, Math.round(c.report_count / Math.max(1, c.report_count) * 40 + (c.complete_count / c.report_count) * 60))
+        confidence: Math.min(100, Math.round(Math.min(c.report_count / 10, 1) * 40 + (c.complete_count / c.report_count) * 60))
       })),
       total: clusters.length
     })

@@ -69,8 +69,6 @@ function liveStatus(lastRefreshDate, refreshing) {
   return { label: `Updated ${ageMin}m ago`, kind: 'stale' }
 }
 
-const DAMAGE_COLORS_HEX = { none: '#00833E', partial: '#F5A623', complete: '#D12800' }
-
 // ── Consolidated cluster layer — one marker per incident group ────────────────
 function ConsolidatedLayer({ apiKey }) {
   const map = useMap()
@@ -91,7 +89,7 @@ function ConsolidatedLayer({ apiKey }) {
     const group = L.layerGroup()
 
     clusters.forEach(c => {
-      const color = DAMAGE_COLORS_HEX[c.dominant_damage] || DAMAGE_COLORS_HEX.partial
+      const color = DAMAGE_COLORS[c.dominant_damage] || DAMAGE_COLORS.partial
       const r = Math.max(16, Math.min(40, 12 + c.report_count * 3))
 
       const icon = L.divIcon({
@@ -133,7 +131,6 @@ function ConsolidatedLayer({ apiKey }) {
   return null
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
 function HeatmapLayer({ reports }) {
   const map = useMap()
   const heatLayerRef = useRef(null)
@@ -302,7 +299,6 @@ function MapBoundsUpdater({ reports }) {
   return null
 }
 
-// ── LIVE badge ────────────────────────────────────────────────────────────────
 function LiveBadge({ lastRefresh, refreshing }) {
   const [, tick] = useState(0)
 
@@ -343,7 +339,6 @@ function LiveBadge({ lastRefresh, refreshing }) {
   )
 }
 
-// ── Analyst actions (verify + notes) ─────────────────────────────────────────
 function AnalystActions({ reportId, isVerified, analystNotes, apiKey }) {
   const [verified, setVerified] = useState(isVerified)
   const [notes, setNotes] = useState(analystNotes || '')
@@ -423,7 +418,6 @@ function AnalystActions({ reportId, isVerified, analystNotes, apiKey }) {
   )
 }
 
-// ── Building aggregate overlay ────────────────────────────────────────────────
 function BuildingAggregateLayer({ apiKey, visible }) {
   const map = useMap()
   const groupRef = useRef(null)
@@ -485,7 +479,6 @@ function BuildingAggregateLayer({ apiKey, visible }) {
   return null
 }
 
-// ── Popup card ────────────────────────────────────────────────────────────────
 function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) {
   const props = report.properties || {}
   const damage = props.damage_level || 'partial'
@@ -604,7 +597,6 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
   )
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
 export default function MapView({ reports, loading, refreshing, lastRefresh, showHeatmap, showNeedsHeatmap, needsHeatmapType, showBuildings, showBuildingAggregate, showConsolidated, apiKey, flyTarget }) {
   const { t } = useTranslation()
   const sessionId = useStore((s) => s.sessionId)
@@ -630,6 +622,13 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
     }
   }
 
+  const mapReports = (showNeedsHeatmap && needsHeatmapType && needsHeatmapType !== 'all')
+    ? reports.filter(r => {
+        const needs = r.properties?.pressing_needs
+        return Array.isArray(needs) && needs.includes(needsHeatmapType)
+      })
+    : reports
+
   return (
     <div className="relative w-full h-full">
       {loading && (
@@ -653,24 +652,11 @@ export default function MapView({ reports, loading, refreshing, lastRefresh, sho
 
         {reports.length > 0 && <MapBoundsUpdater reports={reports} />}
 
-        {(() => {
-          // When a specific need is selected, filter markers to match
-          const visibleReports = (showNeedsHeatmap && needsHeatmapType && needsHeatmapType !== 'all')
-            ? reports.filter(r => {
-                const needs = r.properties?.pressing_needs
-                return Array.isArray(needs) && needs.includes(needsHeatmapType)
-              })
-            : reports
-
-          return showHeatmap ? (
-            <HeatmapLayer reports={visibleReports} />
-          ) : (
-            <ClusteredMarkers
-              reports={visibleReports}
-              onMarkerClick={handleMarkerClick}
-            />
-          )
-        })()}
+        {showHeatmap ? (
+          <HeatmapLayer reports={mapReports} />
+        ) : (
+          <ClusteredMarkers reports={mapReports} onMarkerClick={handleMarkerClick} />
+        )}
 
         {showNeedsHeatmap && (
           <NeedsHeatmapLayer

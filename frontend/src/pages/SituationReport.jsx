@@ -35,9 +35,7 @@ export default function SituationReport() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [aiNarrative, setAiNarrative] = useState(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState(null)
+  const [ai, setAi] = useState({ narrative: null, loading: false, error: null })
   const [copied, setCopied] = useState(false)
   const apiKey = sessionStorage.getItem('dashboard_key') || ''
 
@@ -53,8 +51,7 @@ export default function SituationReport() {
   }, [apiKey])
 
   const generateNarrative = useCallback(async (lang = 'en') => {
-    setAiLoading(true)
-    setAiError(null)
+    setAi(prev => ({ ...prev, loading: true, error: null }))
     try {
       const res = await fetch('/api/v1/analytics/ai-narrative', {
         method: 'POST',
@@ -63,22 +60,22 @@ export default function SituationReport() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to generate narrative')
-      setAiNarrative(json.narrative)
+      setAi(prev => ({ ...prev, narrative: json.narrative }))
     } catch (e) {
-      setAiError(e.message)
+      setAi(prev => ({ ...prev, error: e.message }))
     } finally {
-      setAiLoading(false)
+      setAi(prev => ({ ...prev, loading: false }))
     }
   }, [apiKey])
 
   const copyNarrative = useCallback(async () => {
-    if (!aiNarrative) return
+    if (!ai.narrative) return
     try {
-      await navigator.clipboard.writeText(aiNarrative)
+      await navigator.clipboard.writeText(ai.narrative)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch { /* ignore */ }
-  }, [aiNarrative])
+  }, [ai.narrative])
 
   if (!apiKey) return <ApiKeyGate><SituationReport /></ApiKeyGate>
 
@@ -97,10 +94,10 @@ export default function SituationReport() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => generateNarrative('en')}
-            disabled={aiLoading}
+            disabled={ai.loading}
             className="flex items-center gap-2 bg-undp-teal text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-teal-600 transition-colors disabled:opacity-60"
           >
-            {aiLoading ? (
+            {ai.loading ? (
               <><span className="animate-spin">⏳</span> Generating…</>
             ) : (
               <><span>✨</span> AI Narrative</>
@@ -277,7 +274,7 @@ export default function SituationReport() {
           </div>
 
           {/* AI Narrative section */}
-          {(aiNarrative || aiLoading || aiError) && (
+          {(ai.narrative || ai.loading || ai.error) && (
             <div className="bg-white rounded-xl border-2 border-undp-teal/30 p-5 mb-6 print:border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -285,14 +282,14 @@ export default function SituationReport() {
                   <h2 className="text-sm font-bold text-gray-700">AI-Generated Narrative</h2>
                   <span className="text-xs bg-undp-teal/10 text-undp-teal px-2 py-0.5 rounded-full font-semibold">Llama 3.3 · Groq</span>
                 </div>
-                {aiNarrative && (
+                {ai.narrative && (
                   <div className="flex items-center gap-2 print:hidden">
                     {/* Language selector */}
                     <select
                       onChange={e => generateNarrative(e.target.value)}
                       defaultValue="en"
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-undp-teal"
-                      disabled={aiLoading}
+                      disabled={ai.loading}
                     >
                       <option value="en">English</option>
                       <option value="fr">Français</option>
@@ -308,7 +305,7 @@ export default function SituationReport() {
                       {copied ? '✅ Copied' : '📋 Copy'}
                     </button>
                     <a
-                      href={`https://wa.me/?text=${encodeURIComponent('RAPIDA Crisis SITREP\n\n' + aiNarrative)}`}
+                      href={`https://wa.me/?text=${encodeURIComponent('RAPIDA Crisis SITREP\n\n' + ai.narrative)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
@@ -317,7 +314,7 @@ export default function SituationReport() {
                       📱 WhatsApp
                     </a>
                     <a
-                      href={`mailto:?subject=${encodeURIComponent('RAPIDA Crisis SITREP — ' + new Date().toLocaleDateString())}&body=${encodeURIComponent(aiNarrative)}`}
+                      href={`mailto:?subject=${encodeURIComponent('RAPIDA Crisis SITREP — ' + new Date().toLocaleDateString())}&body=${encodeURIComponent(ai.narrative)}`}
                       className="flex items-center gap-1 text-xs px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
                       title="Share via Email"
                     >
@@ -327,29 +324,29 @@ export default function SituationReport() {
                 )}
               </div>
 
-              {aiLoading && (
+              {ai.loading && (
                 <div className="flex items-center gap-3 py-6 justify-center text-gray-400">
                   <div className="animate-spin w-5 h-5 border-2 border-undp-teal border-t-transparent rounded-full" />
                   <span className="text-sm">Analysing field data and generating narrative…</span>
                 </div>
               )}
 
-              {aiError && (
+              {ai.error && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-                  {aiError}
+                  {ai.error}
                 </div>
               )}
 
-              {aiNarrative && !aiLoading && (
+              {ai.narrative && !ai.loading && (
                 <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
-                  {aiNarrative}
+                  {ai.narrative}
                 </div>
               )}
             </div>
           )}
 
           {/* Generate prompt if not yet generated */}
-          {!aiNarrative && !aiLoading && !aiError && (
+          {!ai.narrative && !ai.loading && !ai.error && (
             <div className="print:hidden bg-gradient-to-r from-undp-teal/5 to-undp-blue/5 border border-undp-teal/20 rounded-xl p-4 mb-6 flex items-center gap-4">
               <span className="text-3xl flex-shrink-0" aria-hidden="true">✨</span>
               <div className="flex-1">

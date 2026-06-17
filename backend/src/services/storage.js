@@ -10,7 +10,12 @@ const client = new Minio.Client({
   secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin'
 })
 
-const BUCKET = process.env.MINIO_BUCKET || 'crisis-reports'
+const BUCKET    = process.env.MINIO_BUCKET || 'crisis-reports'
+
+const ENDPOINT  = process.env.MINIO_ENDPOINT || 'localhost'
+const PORT_NUM  = process.env.MINIO_PORT || '9000'
+const USE_SSL   = process.env.MINIO_USE_SSL === 'true'
+const PROTOCOL  = USE_SSL ? 'https' : 'http'
 
 /**
  * Create the MinIO bucket if it does not exist, and apply a public-read
@@ -66,17 +71,12 @@ async function uploadFile(buffer, key, contentType) {
   const metadata = { 'Content-Type': contentType }
   await client.putObject(BUCKET, key, buffer, buffer.length, metadata)
 
-  const endpoint = process.env.MINIO_ENDPOINT || 'localhost'
-  const port = process.env.MINIO_PORT || '9000'
-  const useSSL = process.env.MINIO_USE_SSL === 'true'
-  const protocol = useSSL ? 'https' : 'http'
-
   // If a public base URL is configured (e.g. via nginx proxy), use it
   if (process.env.MINIO_PUBLIC_URL) {
     return `${process.env.MINIO_PUBLIC_URL}/${BUCKET}/${key}`
   }
 
-  return `${protocol}://${endpoint}:${port}/${BUCKET}/${key}`
+  return `${PROTOCOL}://${ENDPOINT}:${PORT_NUM}/${BUCKET}/${key}`
 }
 
 /**
@@ -99,17 +99,6 @@ async function deleteFile(key) {
   await client.removeObject(BUCKET, key)
 }
 
-/**
- * Process an uploaded photo:
- *  - Auto-rotate based on EXIF orientation
- *  - Strip all EXIF metadata
- *  - Resize to max 1920px on the longest edge (no upscaling)
- *  - Convert to progressive JPEG at 85% quality
- *  - Upload to photos/ prefix
- *
- * @param {Buffer} inputBuffer - raw upload buffer
- * @returns {Promise<{ photoUrl: string, photoKey: string }>}
- */
 async function processAndUploadPhoto(inputBuffer) {
   const processed = await sharp(inputBuffer)
     .rotate()                                                   // auto-orient from EXIF, then strips orientation tag
@@ -122,16 +111,6 @@ async function processAndUploadPhoto(inputBuffer) {
   return { photoUrl: url, photoKey: key }
 }
 
-/**
- * Generate and upload a thumbnail from an uploaded photo:
- *  - Auto-rotate
- *  - Resize to max 400px on the longest edge
- *  - JPEG at 70% quality
- *  - Upload to thumbnails/ prefix (publicly readable)
- *
- * @param {Buffer} inputBuffer - raw upload buffer
- * @returns {Promise<{ thumbnailUrl: string, thumbnailKey: string }>}
- */
 async function processAndUploadThumbnail(inputBuffer) {
   const thumbnail = await sharp(inputBuffer)
     .rotate()

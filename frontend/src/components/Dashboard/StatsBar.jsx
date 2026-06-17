@@ -192,16 +192,12 @@ export default function StatsBar() {
   const pPartial = total > 0 ? Math.round((partialCount / total) * 100) : 0
   const pComplete = total > 0 ? Math.round((completeCount / total) * 100) : 0
 
-  // Top crisis type
   const byCrisisType = stats.by_crisis_type || {}
-  let topCrisis = null
-  let topCrisisCount = 0
-  for (const [type, count] of Object.entries(byCrisisType)) {
-    if (count > topCrisisCount) {
-      topCrisis = type
-      topCrisisCount = count
-    }
-  }
+  const topCrisis = Object.keys(byCrisisType).reduce(
+    (best, type) => byCrisisType[type] > (byCrisisType[best] ?? -1) ? type : best,
+    null
+  )
+  const topCrisisCount = topCrisis ? byCrisisType[topCrisis] : 0
 
   const estimatedAffected = stats.estimated_affected ?? 0
 

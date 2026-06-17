@@ -48,9 +48,7 @@ const flagLimiter = rateLimit({
   message: { error: 'Too many flags', code: 'FLAG_RATE_LIMITED' }
 })
 
-// -------------------------------------------------------------------
-// GET /api/v1/reports/stream  — SSE, auth via query param
-// -------------------------------------------------------------------
+// GET /api/v1/reports/stream
 router.get('/stream', (req, res) => {
   const key = req.query.key || req.headers['x-api-key']
   if (!key || key !== process.env.DASHBOARD_API_KEY) {
@@ -77,9 +75,7 @@ router.get('/stream', (req, res) => {
   req.on('close', () => { unsub(); clearInterval(heartbeat) })
 })
 
-// -------------------------------------------------------------------
-// POST /api/v1/reports  — public, rate-limited, requires photo upload
-// -------------------------------------------------------------------
+// POST /api/v1/reports
 router.post(
   '/',
   submissionLimiter,
@@ -112,9 +108,7 @@ router.post(
   createReport
 )
 
-// -------------------------------------------------------------------
-// GET /api/v1/reports  — auth-protected, returns GeoJSON
-// -------------------------------------------------------------------
+// GET /api/v1/reports
 router.get(
   '/',
   auth,
@@ -136,21 +130,12 @@ router.get(
   getReports
 )
 
-// -------------------------------------------------------------------
-// GET /api/v1/reports/:id  — public (no sensitive fields returned)
-// -------------------------------------------------------------------
 router.get(
   '/:id',
   [param('id').isUUID().withMessage('id must be a valid UUID')],
   getReport
 )
 
-// -------------------------------------------------------------------
-// POST /api/v1/reports/:id/confirm  — public, rate-limited (5/IP/hour)
-// Crowdsourced confirmation: "I've also seen this damage"
-// Increments confirmation_count. Same IP cannot confirm same report twice
-// within the rate-limit window.
-// -------------------------------------------------------------------
 const confirmLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
@@ -181,9 +166,6 @@ router.post(
   }
 )
 
-// -------------------------------------------------------------------
-// POST /api/v1/reports/:id/flag  — public, rate-limited
-// -------------------------------------------------------------------
 router.post(
   '/:id/flag',
   flagLimiter,
@@ -191,9 +173,6 @@ router.post(
   flagReport
 )
 
-// -------------------------------------------------------------------
-// PATCH /api/v1/reports/:id  — analyst verify/flag/notes
-// -------------------------------------------------------------------
 router.patch('/:id', auth, [
   param('id').isUUID(),
   body('is_verified').optional().isBoolean(),

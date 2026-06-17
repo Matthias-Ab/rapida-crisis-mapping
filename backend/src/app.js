@@ -5,34 +5,22 @@ const cors = require('cors')
 const rateLimit = require('express-rate-limit')
 const { createLogger, transports, format } = require('winston')
 
-// ---------------------------------------------------------------------------
-// Logger (shared across the process)
-// ---------------------------------------------------------------------------
 const logger = createLogger({
   level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
   format: format.combine(format.timestamp(), format.json()),
   transports: [new transports.Console()]
 })
 
-// ---------------------------------------------------------------------------
-// App setup
-// ---------------------------------------------------------------------------
 const app = express()
 
 // Trust the first proxy so req.ip is the client IP, not the proxy's address.
 // Needed for accurate rate-limiting behind nginx / Docker ingress.
 app.set('trust proxy', 1)
 
-// ---------------------------------------------------------------------------
-// Security headers
-// ---------------------------------------------------------------------------
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }))
 
-// ---------------------------------------------------------------------------
-// CORS
-// ---------------------------------------------------------------------------
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : '*'
@@ -46,15 +34,9 @@ const corsOptions = {
 }
 app.use(cors(corsOptions))
 
-// ---------------------------------------------------------------------------
-// Body parsers
-// ---------------------------------------------------------------------------
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
-// ---------------------------------------------------------------------------
-// Global IP rate limiter: 100 req/min per IP across all /api/ routes
-// ---------------------------------------------------------------------------
 app.use('/api/', rateLimit({
   windowMs: 60 * 1000,
   max: 100,
@@ -63,9 +45,6 @@ app.use('/api/', rateLimit({
   message: { error: 'Too many requests', code: 'RATE_LIMITED' }
 }))
 
-// ---------------------------------------------------------------------------
-// Request logging (development only)
-// ---------------------------------------------------------------------------
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, _res, next) => {
     logger.info(`${req.method} ${req.path}`)
@@ -73,9 +52,6 @@ if (process.env.NODE_ENV !== 'production') {
   })
 }
 
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
 app.use('/api/v1/reports', require('./routes/reports'))
 app.use('/api/v1/export', require('./routes/export'))
 app.use('/api/v1/analytics', require('./routes/analytics'))
@@ -86,14 +62,8 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' })
 })
 
-// ---------------------------------------------------------------------------
-// Global error handler (must be last)
-// ---------------------------------------------------------------------------
 app.use(require('./middleware/errorHandler'))
 
-// ---------------------------------------------------------------------------
-// Server startup
-// ---------------------------------------------------------------------------
 const PORT = parseInt(process.env.PORT || '3001', 10)
 
 async function startServer() {
@@ -114,18 +84,10 @@ async function startServer() {
       logger.info(`RAPIDA backend running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`)
     })
 
-    // ---------------------------------------------------------------------------
-    // Graceful shutdown
-    // ---------------------------------------------------------------------------
     async function shutdown(signal) {
       logger.info(`Received ${signal}, shutting down gracefully...`)
       server.close(async () => {
-        try {
-          await prisma.$disconnect()
-          logger.info('Database disconnected')
-        } catch (err) {
-          logger.error('Error disconnecting from database:', err)
-        }
+        await prisma.$disconnect().catch(e => logger.error('disconnect', e))
         process.exit(0)
       })
 

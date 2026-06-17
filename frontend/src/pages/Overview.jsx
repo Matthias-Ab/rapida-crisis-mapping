@@ -21,7 +21,6 @@ const CRISIS_EMOJI = {
   wildfire: '🔥', explosion: '💥', chemical_incident: '☣️', conflict: '⚔️', civil_unrest: '🚧',
 }
 
-// ── Consolidated cluster layer (public endpoint, no auth) ──────────────────
 function ClusterLayer() {
   const map = useMap()
   const groupRef = useRef(null)
@@ -78,7 +77,6 @@ function ClusterLayer() {
   return null
 }
 
-// ── Mini timeseries bar chart ──────────────────────────────────────────────
 function ActivityChart({ data }) {
   if (!data?.length) return null
   const max = Math.max(...data.map(d => d.total), 1)
@@ -96,7 +94,6 @@ function ActivityChart({ data }) {
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────
 export default function Overview() {
   const { t } = useTranslation()
   const [analytics, setAnalytics] = useState(null)

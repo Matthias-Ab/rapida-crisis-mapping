@@ -222,6 +222,8 @@ const NEEDS_KEYWORDS = {
   }
 }
 
+const SUPPORTED_LANGS = new Set(['en', 'fr', 'es', 'ar', 'zh', 'ru'])
+
 function countMatches(text, keywords) {
   const lower = text.toLowerCase()
   return keywords.reduce((n, kw) => n + (lower.includes(kw.toLowerCase()) ? 1 : 0), 0)
@@ -240,7 +242,7 @@ function bestMatch(text, categoryMap, lang) {
 
 export function parseVoiceInput(transcript, language = 'en') {
   if (!transcript?.trim()) return {}
-  const lang = (language in DAMAGE_KEYWORDS.complete) ? language : 'en'
+  const lang = SUPPORTED_LANGS.has(language) ? language : 'en'
   const lower = transcript.toLowerCase()
 
   const completeScore = countMatches(lower, DAMAGE_KEYWORDS.complete[lang] || DAMAGE_KEYWORDS.complete.en)
@@ -284,7 +286,7 @@ export function summarizeDetected(parsed, t) {
   const items = []
   if (parsed.damageLevel) items.push({ icon: '💥', label: t(DAMAGE_LABEL[parsed.damageLevel]) })
   if (parsed.infraType) items.push({ icon: '🏗️', label: t(INFRA_LABEL[parsed.infraType] || 'infra_other') })
-  if (parsed.crisisType) items.push({ icon: '⚠️', label: t(CRISIS_LABEL[parsed.crisisType] || 'crisis_natural') })
+  if (parsed.crisisType) items.push({ icon: '⚠️', label: t(CRISIS_LABEL[parsed.crisisType] || parsed.crisisType) })
   parsed.pressingNeeds?.forEach((need) => {
     items.push({ icon: NEED_EMOJI[need] || '•', label: t(NEED_LABEL[need] || need) })
   })
