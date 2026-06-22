@@ -48,7 +48,7 @@ function ShareIcon({ className }) {
 }
 
 export default function ReportForm({ quickMode = false, onModeChange }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const TOTAL_STEPS = quickMode ? 3 : 5
   const STEP_TITLES_Q = ['step1_title', 'step2_title', 'step3_title']
   const STEP_ICON_COMPONENTS_Q = [CameraIcon, LocationPinIcon, DamageIcon]
@@ -153,11 +153,12 @@ export default function ReportForm({ quickMode = false, onModeChange }) {
       longitude: form.location?.lng?.toString() || '',
       building_id: form.location?.buildingId?.toString() || '',
       location_text: form.location?.locationText || '',
+      what3words: form.location?.what3words || '',
       electricity_status: form.electricityStatus || '',
       health_services_status: form.healthStatus || '',
       pressing_needs: JSON.stringify(form.pressingNeeds || []),
       description: form.description || '',
-      language: 'en'
+      language: i18n.language || 'en'
     }
 
     const fd = new FormData()

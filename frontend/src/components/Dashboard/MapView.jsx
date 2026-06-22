@@ -536,14 +536,14 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
         <div className="p-3">
           {/* Infra + crisis type */}
           <div className="flex items-center gap-1 text-xs text-gray-500 font-medium mb-1">
-            {props.infrastructure_type && (
-              <span>🏗️ {props.infrastructure_type}</span>
+            {props.infra_type && (
+              <span>🏗️ {props.infra_type.replace(/_/g, ' ')}</span>
             )}
-            {props.infrastructure_type && props.crisis_type && (
+            {props.infra_type && props.crisis_type && (
               <span className="text-gray-300">·</span>
             )}
             {props.crisis_type && (
-              <span>⚠️ {props.crisis_type}</span>
+              <span>⚠️ {props.crisis_type.replace(/_/g, ' ')}</span>
             )}
           </div>
 

@@ -7,11 +7,11 @@ import { getReport, flagReport } from '../services/api'
 import { useStore } from '../store'
 import LoadingSpinner from '../components/shared/LoadingSpinner'
 
-// Rewrite Docker-internal MinIO hostname to host-accessible URL
 function publicMediaUrl(url) {
   if (!url) return null
-  const minioPublic = import.meta.env.VITE_MINIO_PUBLIC_URL || 'http://localhost:9000'
-  return url.replace(/https?:\/\/minio:\d+/, minioPublic)
+  const base = import.meta.env.VITE_MINIO_PUBLIC_URL
+  if (!base) return url
+  return url.replace(/https?:\/\/(minio|localhost):\d+/, base)
 }
 
 const DAMAGE_CONFIG = {
