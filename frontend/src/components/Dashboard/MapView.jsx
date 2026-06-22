@@ -479,12 +479,20 @@ function BuildingAggregateLayer({ apiKey, visible }) {
   return null
 }
 
+function popupMediaUrl(url) {
+  if (!url) return null
+  const base = import.meta.env.VITE_MINIO_PUBLIC_URL
+  if (!base) return url
+  return url.replace(/https?:\/\/(minio|localhost):\d+/, base)
+}
+
 function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) {
   const props = report.properties || {}
   const damage = props.damage_level || 'partial'
   const bgClass = DAMAGE_BG[damage] || DAMAGE_BG.partial
   const emoji = DAMAGE_EMOJI[damage] || '⚠️'
-  const hasPhoto = !!props.photo_url
+  const thumbSrc = popupMediaUrl(props.thumbnail_url)
+  const hasPhoto = !!thumbSrc
 
   return (
     <div className="absolute bottom-4 left-4 right-4 z-20 max-w-xs mx-auto" style={{ minWidth: 220 }}>
@@ -493,7 +501,7 @@ function ReportPopup({ report, onClose, onFlag, flagging, flagged, apiKey, t }) 
         <div className="relative">
           {hasPhoto ? (
             <img
-              src={props.photo_url}
+              src={thumbSrc}
               alt="Damage photo"
               className="w-full object-cover rounded-t-xl bg-gray-100"
               style={{ height: 120 }}

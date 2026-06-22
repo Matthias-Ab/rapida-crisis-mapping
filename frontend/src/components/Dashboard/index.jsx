@@ -199,8 +199,9 @@ function PriorityQueue({ apiKey, onReportClick }) {
 // ── Media URL helper (same as ReportDetail) ──────────────────────────────────
 function publicMediaUrl(url) {
   if (!url) return null
-  const base = import.meta.env.VITE_MINIO_PUBLIC_URL || 'http://localhost:9000'
-  return url.replace(/https?:\/\/minio:\d+/, base)
+  const base = import.meta.env.VITE_MINIO_PUBLIC_URL
+  if (!base) return url
+  return url.replace(/https?:\/\/(minio|localhost):\d+/, base)
 }
 
 // ── Alert Banner ──────────────────────────────────────────────────────────────

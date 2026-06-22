@@ -3,7 +3,10 @@ const { prisma } = require('../src/db/connection')
 const { v4: uuidv4 } = require('uuid')
 const crypto = require('crypto')
 
-const BASE = 'http://localhost:9000/crisis-reports'
+// Seed photos use picsum.photos so they load on any deployment without
+// needing actual objects in object storage.
+function seedPhotoUrl(id) { return `https://picsum.photos/seed/${id.slice(0, 8)}/800/600` }
+function seedThumbUrl(id) { return `https://picsum.photos/seed/${id.slice(0, 8)}/400/300` }
 const LOCATIONS = [
   { name: 'Antakya, Turkey',       lat: 36.2021, lng:  36.1604, crisis: 'earthquake' },
   { name: 'Derna, Libya',          lat: 32.7541, lng:  22.6374, crisis: 'flood' },
@@ -65,9 +68,9 @@ const reports = Array.from({ length: 80 }, (_, i) => {
     id, lat: loc.lat + jitter(), lng: loc.lng + jitter(),
     createdAt: new Date(now - (Math.random() * 72) * 3600000),
     locationText: loc.name,
-    photoUrl: `${BASE}/photos/seed-${id}.jpg`,
+    photoUrl: seedPhotoUrl(id),
     photoKey: `photos/seed-${id}.jpg`,
-    thumbUrl: `${BASE}/thumbnails/seed-${id}.jpg`,
+    thumbUrl: seedThumbUrl(id),
     damageLevel:       pick(DAMAGE),
     infraType:         pick(INFRA),
     crisisType:        loc.crisis,
@@ -124,12 +127,33 @@ async function seed() {
   return ok
 }
 
-// Auto-seed: called from app.js if the DB is empty on startup
+// Auto-seed: called from app.js if the DB is empty on startup.
+// Also patches any existing rows that have empty pressing_needs — this fixes
+// deployments where data was seeded before pressing_needs was added.
 async function autoSeedIfEmpty(prismaClient) {
   const count = await prismaClient.report.count()
-  if (count > 10) return  // Already has data
-  console.log(`Empty DB (${count} reports) — running demo seed…`)
-  await seed()
+  if (count <= 10) {
+    console.log(`Empty DB (${count} reports) — running demo seed…`)
+    await seed()
+    return
+  }
+
+  // Patch rows missing pressing_needs without wiping existing data
+  const emptyRows = await prismaClient.$queryRaw`
+    SELECT id FROM reports
+    WHERE pressing_needs IS NULL OR array_length(pressing_needs, 1) IS NULL
+    LIMIT 500
+  `
+  if (emptyRows.length > 0) {
+    console.log(`Patching pressing_needs on ${emptyRows.length} reports…`)
+    for (const { id } of emptyRows) {
+      const picked = [...NEEDS].sort(() => Math.random() - 0.5).slice(0, 1 + Math.floor(Math.random() * 3))
+      await prismaClient.$executeRaw`
+        UPDATE reports SET pressing_needs = ${picked} WHERE id = ${id}::uuid
+      `
+    }
+    console.log(`✓ Patched ${emptyRows.length} reports with pressing_needs`)
+  }
 }
 
 if (require.main === module) {
