@@ -476,10 +476,15 @@ export default function Dashboard() {
         return
       }
       const key = getDashKey()
-      const url = key
-        ? `/api/v1/reports/stream?key=${encodeURIComponent(key)}`
-        : '/api/v1/reports/stream'
-      eventSource = new EventSource(url)
+      // Connect SSE directly to the backend origin so the connection
+      // bypasses the Vercel rewrite proxy, which buffers streaming
+      // responses and terminates SSE after ~30 s.
+      const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+      const streamOrigin = apiBase.startsWith('http')
+        ? apiBase.replace(/\/api\/v1\/?$/, '')
+        : ''
+      const streamPath = `/api/v1/reports/stream${key ? `?key=${encodeURIComponent(key)}` : ''}`
+      eventSource = new EventSource(`${streamOrigin}${streamPath}`)
 
       eventSource.addEventListener('new_report', (e) => {
         retryDelay = 5000 // reset backoff on successful message

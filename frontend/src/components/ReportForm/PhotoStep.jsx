@@ -175,10 +175,16 @@ export default function PhotoStep({ value, onPhotoChange, onAdditionalPhotosChan
     setPrimaryPhoto(processedFile)
     onPhotoChange(processedFile)
 
-    // Run AI classification and brightness check in parallel
+    // Run AI classification and brightness check in parallel.
+    // Cap AI at 8 s — the model is ~22 MB and downloads on first use;
+    // on slow connections it must fail silently rather than stalling the form.
     setAiLoading(true)
+    const AI_TIMEOUT = 8000
     const [result, quality] = await Promise.all([
-      classifyDamage(file).catch(() => null),
+      Promise.race([
+        classifyDamage(file).catch(() => null),
+        new Promise(resolve => setTimeout(() => resolve(null), AI_TIMEOUT))
+      ]),
       analyzeImageQuality(file)
     ])
     setAiLoading(false)

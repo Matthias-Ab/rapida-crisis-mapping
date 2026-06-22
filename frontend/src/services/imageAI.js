@@ -10,11 +10,14 @@ export async function classifyDamage(imageFile) {
     if (!pipeline) {
       loadAttempted = true
       const { pipeline: createPipeline } = await import('@xenova/transformers')
-      pipeline = await createPipeline(
-        'image-classification',
-        'Xenova/vit-base-patch16-224',
-        { quantized: true }
-      )
+      // Hard cap on model download — vit-base-patch16-224 quantized is ~22 MB.
+      // On a slow 3G link this exceeds the 5 s spec target; abort and fail
+      // silently so the form is never blocked.
+      const loaded = await Promise.race([
+        createPipeline('image-classification', 'Xenova/vit-base-patch16-224', { quantized: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('model load timeout')), 10000))
+      ])
+      pipeline = loaded
     }
 
     const imageUrl = URL.createObjectURL(imageFile)
